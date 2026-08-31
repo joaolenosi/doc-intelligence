@@ -17,3 +17,9 @@ eu vou fazer esse desafio de uma selecao de entrevist e to comencaod a montar a 
 ```
 vamos primeiro da commit inicial em portugues, depois vamos criar o claude.md e prompt inicial
 ```
+
+## Prompt 3
+
+```
+'/Users/joaoleno/Projetos/NEST JS/doc-intelligence/doc-intelligence/CLAUDE2.MD' PEGUE OUTRAS ESPECIFICACOES DAQUI CMO TABELA E OUTRAS COISS IMPORTANTES E ADICIONE NO LAUDE
+```
