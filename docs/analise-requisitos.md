@@ -35,9 +35,11 @@ permissão para existir.
 A aplicação também fica livre de framework, e isso não sai de graça. Os casos
 de uso viram classes comuns, sem decorator, recebendo tudo pelo construtor, e a
 ligação entre porta e adaptador vira fábrica escrita à mão nos módulos do Nest.
-Aceitei esse custo por dois motivos. O primeiro é o fato (f): o fornecedor vai
-ser trocado e os prompts vão mudar mais de uma vez no primeiro ano, e a porta é
-o que faz essa troca não encostar no núcleo. O segundo é o custo de teste: um
+Aceitei esse custo por dois motivos. O primeiro é o fato (f): o modelo do
+fornecedor vai trocar de versão e os prompts vão mudar mais de uma vez no
+primeiro ano, e a porta é o que faz essa troca não encostar no núcleo. Ela
+também cobre a troca do fornecedor inteiro, que é um caso mais forte do que o
+enunciado promete. O segundo é o custo de teste: um
 caso de uso que se instancia com `new` não precisa de contexto do Nest para ser
 testado, e em três dias isso decide quantos testes eu consigo escrever.
 
@@ -97,6 +99,13 @@ tentativas com backoff, e de um estado terminal de falha que não se confunda
 com "ainda processando". Finito importa porque cada tentativa é dinheiro:
 retry infinito num pico é uma fatura, não uma resiliência.
 
+O valor do timeout tem uma armadilha que eu quase caí. O reflexo é encurtar
+para liberar o worker mais cedo, mas a chamada é cobrada por documento e do
+lado do fornecedor: cortar aos 30 segundos uma resposta que chegaria aos 35
+paga a chamada e joga fora, e o retry paga de novo. O timeout tem que ficar
+acima do pior caso conhecido, em 60 segundos, e quem protege contra lentidão é
+a concorrência limitada, não o relógio.
+
 **O mesmo documento chega várias vezes.** O cliente reenvia por insegurança, o
 atendimento reenvia por precaução. Cada reenvio processado é uma chamada paga
 por nada. Vou detectar duplicata pelo conteúdo do arquivo (hash), antes de
@@ -132,11 +141,16 @@ isso com todas as letras.
 duas horas. 800 documentos em 2 horas dá algo perto de 7 por minuto, o que é
 pouco. O problema não é o número, é a duração de cada chamada: com 40 segundos
 por documento e uma execução por vez, 800 documentos são mais de 8 horas de
-processamento. Ou seja, o gargalo é o fornecedor, e o que eu controlo é a
-concorrência da fila e o fato de a fila absorver o pico em vez de repassá-lo.
-Aceitar o upload rápido e deixar a fila drenar é a resposta; o custo é que o
-resultado não é imediato, e o contrato precisa deixar isso explícito para
-quem consome.
+processamento. Mas em série é a conta errada, e parar nela levaria à conclusão
+errada de que não há o que fazer. Com concorrência C, o pico exige
+C = 0,11 x 40 = 4,4: cinco execuções simultâneas drenam as duas horas dentro da
+janela. Então o número que eu controlo é 5, e o gargalo real não é o volume nem
+a duração, é o limite de chamadas do fornecedor, que eu não conheço e virou
+pergunta.
+
+Aceitar o upload rápido e deixar a fila drenar é a resposta. O custo é que o
+resultado não é imediato, e o contrato precisa deixar isso explícito para quem
+consome.
 
 **O modelo e os prompts vão mudar.** Trocar de versão pelo menos uma vez, e os
 prompts mais de uma vez no primeiro ano. Duas consequências. A primeira: o
@@ -162,18 +176,21 @@ implementação, e eu digo qual seria o de verdade.
 
 ## O que eu ainda não decidi
 
-Prefiro deixar isso à vista a fingir que já resolvi. Cada item vira decisão
-registrada até o fim do dia 1, e os que tiverem alternativa descartada de
-verdade viram ADR:
+*Atualizado depois do planejamento.* Todos os itens que estavam nesta lista
+foram fechados e estão registrados: o contrato, os estados, o modelo de dados,
+a política de confiança e a regra de nomenclatura na `especificacao.md`, a
+estrutura de módulos e as portas na `arquitetura.md`, e as nove decisões com
+alternativa descartada em `adr/`. O que ficou de fora, com o desenho de como
+entraria, está em `escopo-nao-implementado.md`.
 
-- fila: BullMQ/Redis ou processamento em processo (inclinação: BullMQ);
-- banco: Postgres ou SQLite (inclinação: Postgres com Docker Compose);
-- armazenamento dos arquivos: disco local ou MinIO;
-- estados definitivos do documento e as transições válidas entre eles;
-- limiar de confiança e o que significa "baixa confiança" na prática;
-- formato do contrato HTTP, principalmente como o cliente descobre que
-  terminou (polling ou webhook);
-- o que eu vou testar, e o argumento de por que aquilo e não cobertura.
+Deixo registrado o que a lista dizia, porque a lista era honesta e o percurso
+faz parte da entrega: fila, banco, armazenamento dos arquivos, estados e
+transições, limiar de confiança, formato do contrato e escolha dos testes.
+
+O que continua genuinamente em aberto não depende de mim: o limite de chamadas
+do fornecedor, se ele aceita chave de idempotência, se existe lista fechada de
+tipos de documento e se quem consome prefere webhook a polling. Está tudo nas
+perguntas abaixo.
 
 ## Perguntas que eu vou mandar por e-mail
 
@@ -191,6 +208,14 @@ não no dia 3:
    informal? Se existir, eu prefiro seguir o de vocês.
 4. Documento que reprova na conferência humana: o certo é corrigir os campos e
    seguir, ou existe caso de rejeitar o documento inteiro?
+5. Qual o limite de chamadas por minuto do fornecedor? Eu calculei que cinco
+   execuções simultâneas drenam o pico das 9h, mas se o limite dele for menor,
+   o número que vale é o dele.
+6. O fornecedor aceita alguma chave de idempotência na chamada? Isso decide se
+   um timeout do nosso lado nos faz pagar duas vezes pelo mesmo documento.
+7. A foto original de iPhone chega em HEIC, e não em JPEG. Vocês sabem se o
+   fornecedor aceita HEIC, ou o serviço vai precisar converter antes de
+   enviar?
 
 ## Plano dos três dias
 
