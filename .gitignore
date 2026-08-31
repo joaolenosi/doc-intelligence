@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+coverage/
+*.log
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Arquivos enviados em execucao local. Nunca versionar documento,
+# nem ficticio, junto do codigo.
+uploads/
+storage/
