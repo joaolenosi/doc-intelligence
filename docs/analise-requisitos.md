@@ -20,6 +20,44 @@ conseguir trocar o fornecedor de IA sem mexer no núcleo. Isso é uma escolha de
 velocidade e de familiaridade, não uma tese de que é a melhor ferramenta para
 o problema. Um Go ou um Python com FastAPI resolveriam também.
 
+## Arquitetura, fechada antes deste documento
+
+Parte do desenho eu já tinha resolvido numa análise anterior, antes de abrir o
+repositório. Trago para cá porque é decisão tomada, e não intuição a avaliar
+depois.
+
+Arquitetura hexagonal, portas e adaptadores, com uma regra de dependência só. O
+domínio não importa framework nenhum. A aplicação importa o domínio e define as
+portas, que são interfaces. A infraestrutura importa a aplicação e implementa
+as portas, e é o único lugar onde Nest, banco, fila, disco e cliente HTTP têm
+permissão para existir.
+
+A aplicação também fica livre de framework, e isso não sai de graça. Os casos
+de uso viram classes comuns, sem decorator, recebendo tudo pelo construtor, e a
+ligação entre porta e adaptador vira fábrica escrita à mão nos módulos do Nest.
+Aceitei esse custo por dois motivos. O primeiro é o fato (f): o fornecedor vai
+ser trocado e os prompts vão mudar mais de uma vez no primeiro ano, e a porta é
+o que faz essa troca não encostar no núcleo. O segundo é o custo de teste: um
+caso de uso que se instancia com `new` não precisa de contexto do Nest para ser
+testado, e em três dias isso decide quantos testes eu consigo escrever.
+
+A alternativa que descartei foi a camada padrão do Nest, com serviço decorado
+injetado no controller e repositório do TypeORM dentro do serviço. É mais
+rápida de escrever e é o que eu faria num CRUD. Descartei porque aqui a peça
+que mais precisa ser trocável é justamente a mais funda, e porque 30% da nota é
+exatamente "o que acontece quando uma peça precisa ser trocada". Escrever
+fábrica à mão é o preço, e eu prefiro pagá-lo a argumentar que a fronteira
+existe sem ela existir.
+
+Para a fronteira não virar promessa, vai existir um teste que varre o domínio e
+a aplicação procurando importação de framework e falha se achar alguma. Regra
+de arquitetura sem teste que a defenda é comentário.
+
+As convenções de nomenclatura, incluindo tabela e coluna em português com
+prefixo formado pelas iniciais da tabela, vieram da mesma análise. Estão no
+`CLAUDE.md`, porque quem precisa obedecê-las a cada arquivo é o agente, e o
+mapa de prefixos vai para a especificação.
+
 ## O problema, do meu jeito
 
 O serviço recebe um arquivo (imagem ou PDF) de outro sistema interno, manda
