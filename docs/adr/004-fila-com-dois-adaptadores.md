@@ -49,7 +49,7 @@ existir duas vezes, e é o custo que eu aceitei conscientemente.
 
 Os dois adaptadores não são intercambiáveis em comportamento fino. O BullMQ
 conta tentativa do jeito dele, o adaptador de Postgres conta em
-`prt_tentativas`, e a curva de espera difere. O que o sistema garante igual nos
+`flp_tentativas`, e a curva de espera difere. O que o sistema garante igual nos
 dois é o teto de tentativas e o estado final. Preferi essa imprecisão a vazar
 `attemptsMade` para dentro do caso de uso.
 

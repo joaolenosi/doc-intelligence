@@ -20,3 +20,5 @@ fazendo propaganda dela.
 | [007](007-campo-extraido-em-tabela-propria.md) | Campo extraído em tabela própria, não em JSONB |
 | [008](008-polling-em-vez-de-webhook.md) | Polling em vez de webhook |
 | [009](009-migrations-em-sql.md) | Migrations em SQL, `synchronize` desabilitado |
+| [010](010-catalogo-de-tipos-em-tabela.md) | Catálogo de tipos de documento em tabela |
+| [011](011-processamento-por-tentativa.md) | Uma linha por tentativa, não um contador |

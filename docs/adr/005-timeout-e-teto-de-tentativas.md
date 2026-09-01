@@ -44,8 +44,10 @@ o que reduz a vazão efetiva. É o preço de não desperdiçar chamada paga, e a
 concorrência configurável é o que compensa.
 
 Um documento pode custar até 3 chamadas antes de terminar em `FAILED`. Por isso
-`doc_tentativas` fica na tabela `documento` e não só na fila: é a coluna que
-responde quanto aquele documento já custou, o que é informação de negócio.
+cada tentativa vira uma linha em `processamento`, com provedor, modelo, versão
+de prompt, duração e custo estimado, em vez de um contador no documento. É o que
+responde quanto aquele documento custou e qual a taxa real de falha do
+fornecedor, e está no ADR-011.
 
 **Risco que fica em aberto.** O timeout do nosso lado não cancela o
 processamento do lado do fornecedor. Se ele responder aos 65 segundos, nós
