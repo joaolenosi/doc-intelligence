@@ -68,6 +68,30 @@ existentes com as referenciadas em `doc_chave_armazenamento`, apagando o que nã
 tem dono e é mais velho que alguma folga. É o mesmo desenho da coleta que uma
 política de retenção vai precisar de qualquer jeito.
 
+### Relógios diferentes entre a aplicação e o banco
+
+A fila em banco passou a carimbar as datas com `NOW()` do Postgres, e não com o
+relógio de quem publica, porque o consumo pergunta por
+`flp_disponivel_em <= NOW()` usando o relógio do servidor. Comparar dois
+relógios fazia o trabalho nascer indisponível quando o processo estava alguns
+milissegundos à frente do banco.
+
+O que continua dependendo do relógio da aplicação é o resto do sistema:
+`doc_criado_em`, `doc_processado_em`, a duração de cada tentativa e a data que
+entra no nome padronizado. Nenhum deles é comparado com tempo do banco, então a
+divergência não muda comportamento, só desloca um pouco os registros.
+
+**O que quebraria.** Uma consulta futura que misture as duas fontes, por exemplo
+"documentos criados na última hora" comparando `doc_criado_em` com `NOW()`, volta
+a ter o mesmo problema, e num serviço com vários hosts a diferença é maior do
+que entre um host e um container.
+
+**Como entraria.** Ou o banco carimba tudo, e a porta `Relogio` fica só para a
+regra de negócio que precisa de data, ou os processos sincronizam por NTP e isso
+vira requisito de infraestrutura escrito. Preferi a primeira para a fila, que é
+onde a comparação existe hoje, e registrar a segunda em vez de espalhar `NOW()`
+por toda parte sem necessidade.
+
 ### Cobrança duplicada quando o timeout não cancela o processamento do fornecedor
 
 Nosso timeout é de 60 segundos. Se o fornecedor responder aos 65, nós já

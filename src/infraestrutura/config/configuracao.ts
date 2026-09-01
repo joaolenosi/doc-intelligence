@@ -70,6 +70,15 @@ export interface Configuracao {
     tamanhoMaximoBytes: number;
   };
   readonly armazenamento: { diretorio: string };
+  readonly documentacao: {
+    /**
+     * Padrao desligado. A rota do Swagger nao passa pelo guard global, entao
+     * habilita-la e expor o contrato. Com o padrao ligado, um ambiente que
+     * esquecesse a variavel nasceria aberto sem ninguem ter decidido. Ver
+     * ADR-013.
+     */
+    habilitada: boolean;
+  };
   /** Fronteira de autenticacao, nao seguranca. Ver especificacao. */
   readonly apiKey: string;
 }
@@ -105,6 +114,7 @@ export function carregarConfiguracao(): Configuracao {
     },
     upload: { tamanhoMaximoBytes: numero('UPLOAD_TAMANHO_MAXIMO_BYTES', 26_214_400) },
     armazenamento: { diretorio: texto('ARMAZENAMENTO_DIRETORIO', './storage') },
+    documentacao: { habilitada: texto('DOCS_HABILITADO', 'false') === 'true' },
     apiKey: texto('API_KEY', 'troque-esta-chave'),
   };
 }

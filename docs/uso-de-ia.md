@@ -98,6 +98,13 @@ Percebi porque o registro é item obrigatório da entrega e eu estava conferindo
 o que já existia. O conserto foi registrar os dois com o texto original, mais
 este parágrafo.
 
+E precisei cobrar de novo, na etapa do contrato OpenAPI. As duas vezes o agente
+estava no meio de um problema técnico absorvente, perseguindo teste
+intermitente. O padrão é claro o suficiente para eu escrever: a disciplina de
+registro é a primeira coisa que cai quando a tarefa fica interessante, e é
+exatamente por isso que ela precisa estar escrita como regra em vez de contar
+com atenção.
+
 O que isso ensina sobre conduzir agente é o que me interessa aqui: a regra
 estava escrita, estava no arquivo que ele lê, e mesmo assim ela decaiu conforme
 a conversa ficou longa e as tarefas técnicas foram ficando mais interessantes
@@ -115,6 +122,19 @@ Percebi na linha seguinte, quando a saída completa apareceu. O conserto foi
 imediato, mas o commit ruim já estava no remoto, e eu preferi deixá-lo lá com o
 conserto num commit próprio a reescrever o histórico: o enunciado quer ler como
 o trabalho aconteceu, e um histórico limpo demais esconde justamente isso.
+
+**E aconteceu de novo, uma etapa depois.** No commit dos testes ponta a ponta,
+o agente rodou a suíte de ponta a ponta, viu 14 verdes e empurrou, sem rodar o
+`npm test`. Os arquivos novos terminavam em `.spec.ts` e passaram a ser
+capturados pelo Jest, que tentou carregá-los e quebrou: a suíte de unidade ficou
+vermelha por duas etapas sem ninguém perceber.
+
+Anoto separado do caso anterior de propósito, porque a repetição é o dado. O
+primeiro caso podia ser distração; o segundo mostra que a regra escrita no
+`CLAUDE.md` não estava sendo executada de fato, só citada. A correção foi
+excluir os arquivos de ponta a ponta do Jest, e a correção de verdade é que
+"rodei a suíte" precisa significar as três suítes, e não a que eu acabei de
+escrever.
 
 **O diagnóstico vale mais do que o erro.** Os dois testes falhavam de forma
 intermitente: passavam quando eu rodava o arquivo sozinho e falhavam na suíte
@@ -140,6 +160,31 @@ rascunho que eu já tinha da análise prévia. Erro meu de sequência, não dele
 correção foi fundir os dois, e nessa fusão eu recusei duas coisas do meu próprio
 rascunho: os caminhos de arquivo, que apontavam para arquivos inexistentes, e a
 regra de escrever mensagem de commit sem acento.
+
+**O agente escreveu um bug de relógio, e a intermitência foi o sintoma certo.**
+O adaptador de fila em Postgres gravava `flp_disponivel_em` com o relógio da
+aplicação, e o consumo comparava com `NOW()` do banco. Dois relógios. Com o
+processo alguns milissegundos à frente do container, o trabalho nascia
+indisponível e só era pego no ciclo seguinte.
+
+Percebi porque dois testes falhavam em cerca de uma execução em três, e eu já
+tinha decidido, no caso anterior, não aceitar "flaky" como explicação. Rodei o
+arquivo isolado seis vezes para separar interferência entre suítes de corrida
+interna, e a corrida era interna.
+
+O conserto foi fazer o banco carimbar as datas da fila, com `DEFAULT NOW()`, de
+modo que uma fonte de tempo só responda pela disponibilidade. Oito execuções
+seguidas limpas depois disso.
+
+Atrás dele apareceu ainda um terceiro caso, do lado do Redis: o teste da fila
+BullMQ publicava na mesma fila que o worker do compose consumia, e a contagem
+dava zero em metade das execuções. É a repetição exata do problema do banco
+compartilhado, e a lição vale para os dois lados: teste de integração que
+divide infraestrutura com o ambiente em execução não está medindo o próprio
+código, está disputando com outro processo. Passou a usar uma fila própria. O resto do sistema continua usando o relógio da
+aplicação, e a diferença está registrada em `escopo-nao-implementado.md`, porque
+ela não muda comportamento hoje mas voltaria a morder numa consulta que misture
+as duas fontes.
 
 ## Onde eu discordei da proposta dele
 

@@ -25,6 +25,11 @@ x-aplicacao: &aplicacao
     CONFIANCA_LIMIAR_TIPO: ${CONFIANCA_LIMIAR_TIPO:-0.80}
     CONFIANCA_LIMIAR_CAMPO: ${CONFIANCA_LIMIAR_CAMPO:-0.85}
     API_KEY: ${API_KEY:-chave-de-desenvolvimento}
+    # Ligado aqui, e nao por padrao da aplicacao. A rota do Swagger nao passa
+    # pelo guard global, entao o contrato fica aberto: e aceitavel num servico
+    # interno e numa maquina de desenvolvimento, e precisa ser decisao visivel.
+    # Fora da rede interna, deixe em false. Ver ADR-013.
+    DOCS_HABILITADO: ${DOCS_HABILITADO:-true}
     ARMAZENAMENTO_DIRETORIO: /app/storage
   volumes:
     # Os arquivos vivem fora do container. Documento de cliente nao pode sumir

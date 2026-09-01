@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { Configuracao } from '../../src/infraestrutura/config/configuracao';
 import { ApiModule } from '../../src/infraestrutura/modulos/api.module';
 import { compor } from '../../src/infraestrutura/modulos/composicao';
+import contrato from '../../docs/contrato-openapi.json';
 import { conectar, limpar } from './ambiente';
 
 const CHAVE = 'chave-de-teste';
@@ -33,6 +34,7 @@ beforeAll(async () => {
     confianca: { limiarTipo: 0.8, limiarCampo: 0.85 },
     upload: { tamanhoMaximoBytes: 1024 * 1024 },
     armazenamento: { diretorio },
+    documentacao: { habilitada: false },
     apiKey: CHAVE,
   };
 
@@ -205,5 +207,66 @@ describe('API', () => {
       modelo: 'duble-deterministico-1',
     });
     expect(consulta.body.processamento.versaoPrompt).toMatch(/\.v\d+$/);
+  });
+});
+
+/**
+ * O contrato descreve a forma da resposta em classes de DTO, e quem monta a
+ * resposta e o apresentador. Sao dois lugares, e dois lugares divergem.
+ *
+ * Este teste fecha a duplicacao: ele compara as chaves da resposta de verdade,
+ * vinda do banco e do apresentador, com as chaves documentadas no contrato
+ * versionado. E a garantia que o ADR-013 promete.
+ */
+describe('a resposta real bate com o contrato documentado', () => {
+  const chavesDocumentadas = (schema: string): string[] =>
+    Object.keys((contrato as any).components.schemas[schema].properties).sort();
+
+  it('o recebimento devolve exatamente o que o contrato descreve', async () => {
+    const resposta = await servidor()
+      .post('/v1/documentos')
+      .set(cabecalhos)
+      .attach('arquivo', jpeg('forma-recebimento'), 'a.jpg')
+      .expect(201);
+
+    expect(Object.keys(resposta.body).sort()).toEqual(chavesDocumentadas('RespostaDeRecebimento'));
+  });
+
+  it('a consulta devolve exatamente o que o contrato descreve, em todos os niveis', async () => {
+    const criado = await servidor()
+      .post('/v1/documentos')
+      .set(cabecalhos)
+      .attach('arquivo', jpeg('forma-consulta'), 'a.jpg')
+      .expect(201);
+
+    const { processar } = compor({ configuracao, dataSource: ds });
+    await processar.executar(criado.body.id);
+
+    const consulta = await servidor()
+      .get(`/v1/documentos/${criado.body.id}`)
+      .set(cabecalhos)
+      .expect(200);
+
+    expect(Object.keys(consulta.body).sort()).toEqual(chavesDocumentadas('RespostaDeConsulta'));
+    expect(Object.keys(consulta.body.submissoes).sort()).toEqual(
+      chavesDocumentadas('SubmissoesDaResposta'),
+    );
+    expect(Object.keys(consulta.body.processamento).sort()).toEqual(
+      chavesDocumentadas('ProcessamentoDaResposta'),
+    );
+    expect(consulta.body.campos.length).toBeGreaterThan(0);
+    expect(Object.keys(consulta.body.campos[0]).sort()).toEqual(
+      chavesDocumentadas('CampoDaResposta'),
+    );
+  });
+
+  it('o erro devolve exatamente o que o contrato descreve', async () => {
+    const resposta = await servidor()
+      .post('/v1/documentos')
+      .set(cabecalhos)
+      .attach('arquivo', Buffer.from('MZ nao e documento'), 'rg.jpeg')
+      .expect(415);
+
+    expect(Object.keys(resposta.body).sort()).toEqual(chavesDocumentadas('RespostaDeErro'));
   });
 });

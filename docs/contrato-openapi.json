@@ -1,0 +1,500 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/documentos": {
+      "post": {
+        "description": "Responde na hora, sem esperar o modelo. 201 no primeiro envio de um conteudo e 200 quando aquele hash ja existe: o reenvio e o comportamento esperado, e nesse caso o documento nao e reprocessado mas a submissao e registrada.",
+        "operationId": "DocumentosController_enviar",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "Fronteira de autenticacao. Nao e seguranca de verdade: ver a especificacao.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Sistema-Origem",
+            "in": "header",
+            "description": "Qual sistema interno enviou. Obrigatorio porque a unicidade da chave de idempotencia e por par sistema mais chave.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "arquivo"
+                ],
+                "properties": {
+                  "arquivo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reenvio: submissao registrada, documento nao reprocessado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeRecebimento"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Primeiro envio deste conteudo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeRecebimento"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Campo arquivo ausente ou header obrigatorio faltando",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeErro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chave de API ausente ou invalida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeErro"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Arquivo acima de 25 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeErro"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Conteudo nao aceito, decidido por inspecao dos bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeErro"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Recebe um documento",
+        "tags": [
+          "documentos"
+        ]
+      }
+    },
+    "/v1/documentos/{id}": {
+      "get": {
+        "description": "O cliente consulta ate o estado sair de RECEIVED ou PROCESSING. Campos so vem preenchidos em PROCESSED e REVIEW_REQUIRED.",
+        "operationId": "DocumentosController_obter",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "Fronteira de autenticacao. Nao e seguranca de verdade: ver a especificacao.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeConsulta"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Documento inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeErro"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Consulta um documento",
+        "tags": [
+          "documentos"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "SaudeController_verificar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeSaude"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verifica se o servico esta de pe e enxerga o banco",
+        "tags": [
+          "saude"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "DOC Intelligence",
+    "description": "Servico interno de inteligencia documental. Recebe imagem ou PDF, classifica,\nextrai os campos do tipo e propoe um nome padronizado.\n\nO processamento nao acontece dentro da requisicao: o upload responde na hora com\num identificador e o cliente consulta ate o estado sair de RECEIVED ou PROCESSING.\n\nTodo exemplo deste documento e ficticio, e os numeros de documento reprovam em\nqualquer validacao de digito, de proposito. O servico lida com dado pessoal e\nnenhum dado real aparece aqui, nem em teste, nem em documentacao.",
+    "version": "1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "chave-de-api": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Fronteira de autenticacao entre sistemas internos. Nao e seguranca de verdade: o mecanismo real seria mTLS ou OAuth2 client credentials."
+      }
+    },
+    "schemas": {
+      "RespostaDeRecebimento": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 42,
+            "description": "Identificador do documento"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "PROCESSING",
+              "PROCESSED",
+              "REVIEW_REQUIRED",
+              "FAILED",
+              "REJECTED"
+            ],
+            "example": "RECEIVED",
+            "description": "Situacao no momento da resposta. O upload nao espera o modelo, entao aqui e sempre RECEIVED no primeiro envio."
+          },
+          "hashConteudo": {
+            "type": "string",
+            "example": "c2f0a4d1b8e6539a7c41d0b2e8f36a91d4c7b05e29a1f83b6d0c4e7a95b2f318",
+            "description": "sha-256 do conteudo. E a identidade do documento."
+          },
+          "tipoMidia": {
+            "type": "string",
+            "example": "image/jpeg",
+            "description": "Detectado por inspecao dos bytes, nunca o informado."
+          },
+          "tamanhoBytes": {
+            "type": "number",
+            "example": 2481003
+          },
+          "criadoEm": {
+            "type": "string",
+            "example": "2026-09-01T12:04:11.221Z"
+          }
+        },
+        "required": [
+          "id",
+          "estado",
+          "hashConteudo",
+          "tipoMidia",
+          "tamanhoBytes",
+          "criadoEm"
+        ]
+      },
+      "RespostaDeErro": {
+        "type": "object",
+        "properties": {
+          "erro": {
+            "type": "string",
+            "example": "TIPO_NAO_SUPORTADO"
+          },
+          "mensagem": {
+            "type": "string",
+            "example": "Conteudo nao e JPEG, PNG, HEIC nem PDF"
+          }
+        },
+        "required": [
+          "erro",
+          "mensagem"
+        ]
+      },
+      "CampoDaResposta": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "example": "nome"
+          },
+          "valor": {
+            "type": "string",
+            "example": "MARIA FICTICIA DE SOUZA",
+            "description": "Dado pessoal. Nunca aparece em log."
+          },
+          "confianca": {
+            "type": "number",
+            "example": 0.96,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Confianca daquele valor, e nao do documento."
+          },
+          "origem": {
+            "type": "string",
+            "example": "MODELO",
+            "enum": [
+              "MODELO",
+              "CORRECAO_HUMANA"
+            ]
+          }
+        },
+        "required": [
+          "nome",
+          "valor",
+          "confianca",
+          "origem"
+        ]
+      },
+      "SubmissoesDaResposta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "example": 2,
+            "description": "Quantas vezes esse conteudo chegou."
+          },
+          "canais": {
+            "example": [
+              "crm-atendimento",
+              "portal-balcao"
+            ],
+            "description": "Sistemas por onde o documento chegou, sem repeticao.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nomeOriginalMaisRecente": {
+            "type": "string",
+            "example": "procuracao-registro-casa.pdf"
+          }
+        },
+        "required": [
+          "total",
+          "canais",
+          "nomeOriginalMaisRecente"
+        ]
+      },
+      "ErroDoProcessamento": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "TIMEOUT"
+          },
+          "mensagem": {
+            "type": "string",
+            "example": "Extrator nao respondeu em 60000ms",
+            "description": "Tecnica. Nunca conteudo do documento."
+          }
+        },
+        "required": [
+          "codigo"
+        ]
+      },
+      "ProcessamentoDaResposta": {
+        "type": "object",
+        "properties": {
+          "tentativas": {
+            "type": "number",
+            "example": 1,
+            "description": "Quantas chamadas ao modelo esse documento ja custou."
+          },
+          "provedor": {
+            "type": "object",
+            "example": "duble",
+            "nullable": true
+          },
+          "modelo": {
+            "type": "object",
+            "example": "duble-deterministico-1",
+            "nullable": true
+          },
+          "versaoPrompt": {
+            "type": "object",
+            "example": "extracao-rg.v1",
+            "nullable": true,
+            "description": "Qual versao de prompt produziu o resultado. Serve para comparar depois de uma troca de modelo."
+          },
+          "erro": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ErroDoProcessamento"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tentativas"
+        ]
+      },
+      "RespostaDeConsulta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 42
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "PROCESSING",
+              "PROCESSED",
+              "REVIEW_REQUIRED",
+              "FAILED",
+              "REJECTED"
+            ],
+            "example": "PROCESSED"
+          },
+          "tipoDocumento": {
+            "type": "object",
+            "example": "RG",
+            "nullable": true
+          },
+          "confiancaTipo": {
+            "type": "object",
+            "example": 0.94,
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "nomePadronizado": {
+            "type": "object",
+            "example": "RG_MARIA_FICTICIA_DE_SOUZA_000000000_2026-09-01.jpg",
+            "nullable": true,
+            "description": "Proposta de nome. O servico nao renomeia nada: no disco o arquivo continua guardado pela chave de armazenamento."
+          },
+          "motivosRevisao": {
+            "example": [
+              "CONFIANCA_CAMPO_BAIXA:numero"
+            ],
+            "description": "Por que o documento parou para conferencia. Codigos e nomes de campo, nunca valores. Vazio quando o estado nao e REVIEW_REQUIRED.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "campos": {
+            "description": "So vem preenchido em PROCESSED e REVIEW_REQUIRED.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampoDaResposta"
+            }
+          },
+          "submissoes": {
+            "$ref": "#/components/schemas/SubmissoesDaResposta"
+          },
+          "processamento": {
+            "$ref": "#/components/schemas/ProcessamentoDaResposta"
+          },
+          "criadoEm": {
+            "type": "string",
+            "example": "2026-09-01T12:04:11.221Z"
+          },
+          "processadoEm": {
+            "type": "object",
+            "example": "2026-09-01T12:04:29.884Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "estado",
+          "motivosRevisao",
+          "campos",
+          "submissoes",
+          "processamento",
+          "criadoEm"
+        ]
+      },
+      "RespostaDeSaude": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "example": "ok"
+          },
+          "banco": {
+            "type": "string",
+            "example": "ok"
+          }
+        },
+        "required": [
+          "estado",
+          "banco"
+        ]
+      }
+    }
+  }
+}

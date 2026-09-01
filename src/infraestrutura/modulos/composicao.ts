@@ -68,7 +68,7 @@ export function compor(entrada: {
     });
     publicador = new PublicadorBullMq(filaBullMq, config.extrator.maxTentativas);
   } else {
-    publicador = new PublicadorPostgres(dataSource, relogio);
+    publicador = new PublicadorPostgres(dataSource);
   }
 
   // O timeout envolve o extrator, e nao mora dentro dele, para o mesmo limite

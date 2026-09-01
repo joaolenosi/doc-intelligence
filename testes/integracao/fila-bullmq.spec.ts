@@ -19,10 +19,24 @@ const conexao = {
   port: Number(process.env.REDIS_PORT ?? 6379),
 };
 
+/**
+ * Fila propria, e nao a de producao.
+ *
+ * Pela mesma razao que a integracao usa um banco proprio: com o ambiente de pe,
+ * o worker do compose esta conectado no mesmo Redis e consome a fila de
+ * verdade. O teste publicava, o worker consumia antes da verificacao, e a
+ * contagem dava zero em cerca de metade das execucoes.
+ *
+ * A licao repetiu dos dois lados, Postgres e Redis, e e a mesma: teste de
+ * integracao que compartilha infraestrutura com o ambiente em execucao nao esta
+ * medindo o proprio codigo, esta disputando com outro processo.
+ */
+const FILA_DE_TESTE = `${FILA_DE_PROCESSAMENTO}-teste`;
+
 let fila: Queue;
 
 beforeAll(() => {
-  fila = new Queue(FILA_DE_PROCESSAMENTO, { connection: conexao });
+  fila = new Queue(FILA_DE_TESTE, { connection: conexao });
 });
 
 afterAll(async () => {

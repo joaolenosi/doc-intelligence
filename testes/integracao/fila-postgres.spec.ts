@@ -20,7 +20,7 @@ let unidade: UnidadeDeTrabalhoTypeOrm;
 beforeAll(async () => {
   ds = await conectar();
   documentos = new RepositorioDeDocumentoTypeOrm(ds, relogio);
-  publicador = new PublicadorPostgres(ds, relogio);
+  publicador = new PublicadorPostgres(ds);
   unidade = new UnidadeDeTrabalhoTypeOrm(ds);
 });
 afterAll(async () => {

@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { registrarFalha } from './infraestrutura/comum/descrever-erro';
 import { carregarConfiguracao } from './infraestrutura/config/configuracao';
+import { CAMINHO_DA_DOCUMENTACAO, publicarDocumentacao } from './infraestrutura/http/documentacao';
 import { ApiModule } from './infraestrutura/modulos/api.module';
 import { dataSource } from './infraestrutura/persistencia/typeorm/data-source';
 
@@ -28,6 +29,10 @@ async function subir(): Promise<void> {
     logger: ['error', 'warn', 'log'],
   });
 
+  // A raiz continua em 404, de proposito: nao existe rota nem redirecionamento
+  // ali. Quem sobe o projeto acha o caminho pelo log e pelo README.
+  if (configuracao.documentacao.habilitada) publicarDocumentacao(app);
+
   const porta = Number(process.env.PORTA ?? 3000);
   await app.listen(porta);
 
@@ -37,6 +42,11 @@ async function subir(): Promise<void> {
       porta,
       filaAdaptador: configuracao.fila.adaptador,
       modoDoDuble: configuracao.extrator.modoDoDuble,
+      // Impresso na subida porque `localhost:3000` responde 404 e ninguem
+      // adivinha para onde ir.
+      documentacao: configuracao.documentacao.habilitada
+        ? `http://localhost:${porta}/${CAMINHO_DA_DOCUMENTACAO}`
+        : 'desabilitada (DOCS_HABILITADO=true para publicar)',
     }),
   );
 }
