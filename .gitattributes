@@ -1,0 +1,22 @@
+# As fixtures sao bytes, e nunca texto.
+#
+# Os PDFs gerados aqui sao quase todos ASCII, sem stream comprimido, entao a
+# heuristica do git os classifica como texto. Numa maquina com
+# core.autocrlf=true, que e o padrao de instalacao no Windows, o checkout troca
+# cada \n por \r\n e o arquivo no disco deixa de ser o que foi commitado.
+#
+# Nao e so o teste de fixture que quebra. Um PDF guarda em `xref` e `startxref`
+# a posicao em bytes de cada objeto, entao 49 bytes de \r a mais deslocam todas
+# elas: o arquivo continua comecando com %PDF, continua passando na inspecao por
+# magic bytes, e vira um PDF malformado em silencio. Era o que estava
+# acontecendo, e so apareceu porque o teste compara byte a byte com o que o
+# gerador produz.
+#
+# `-text` desliga a conversao de fim de linha nos dois sentidos. O blob no git
+# ja esta correto, com \n: quem clonou no Windows antes disto precisa de um
+# `git add --renormalize .` ou de um checkout novo para o disco voltar a bater.
+fixtures/** -text
+
+# O README de la e o unico texto no diretorio, e continua sendo tratado como
+# texto: a regra acima e sobre os arquivos que sao conteudo de documento.
+fixtures/README.md text
