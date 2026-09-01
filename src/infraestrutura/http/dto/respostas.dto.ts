@@ -174,3 +174,42 @@ export class RespostaDeSaude {
   @ApiProperty({ example: 'ok' })
   banco!: string;
 }
+
+export class EndpointDaRaiz {
+  @ApiProperty({ example: 'POST' })
+  metodo!: string;
+
+  @ApiProperty({ example: '/v1/documentos' })
+  caminho!: string;
+
+  @ApiProperty({ example: 'Recebe um documento' })
+  descricao!: string;
+}
+
+export class RespostaDaRaiz {
+  @ApiProperty({ example: 'DOC Intelligence' })
+  servico!: string;
+
+  @ApiProperty({ example: 'v1' })
+  versao!: string;
+
+  @ApiProperty({
+    example: 'http://localhost:3000/healthz',
+    description: 'Link absoluto, para colar no navegador.',
+  })
+  saude!: string;
+
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/v1/docs',
+    nullable: true,
+    description: 'Nulo quando DOCS_HABILITADO esta desligado, para nao anunciar um caminho que responde 404.',
+  })
+  documentacao!: string | null;
+
+  @ApiProperty({
+    type: [EndpointDaRaiz],
+    description:
+      'As operacoes da API, com metodo e template. Nao sao links absolutos de proposito: /v1/documentos so aceita POST, e anunciar a URL crua faria quem clicasse receber 404.',
+  })
+  endpoints!: EndpointDaRaiz[];
+}

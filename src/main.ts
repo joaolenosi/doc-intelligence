@@ -29,8 +29,8 @@ async function subir(): Promise<void> {
     logger: ['error', 'warn', 'log'],
   });
 
-  // A raiz continua em 404, de proposito: nao existe rota nem redirecionamento
-  // ali. Quem sobe o projeto acha o caminho pelo log e pelo README.
+  // O caminho tambem sai na raiz, que lista os endpoints. Ver a revisao do
+  // ADR-013: o log ajuda quem le log, e a raiz ajuda quem abre o navegador.
   if (configuracao.documentacao.habilitada) publicarDocumentacao(app);
 
   const porta = Number(process.env.PORTA ?? 3000);

@@ -1,6 +1,29 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/": {
+      "get": {
+        "description": "Ponto de partida. Nao exige chave de API.",
+        "operationId": "RaizController_descobrir",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDaRaiz"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Lista os endpoints disponiveis",
+        "tags": [
+          "descoberta"
+        ]
+      }
+    },
     "/v1/documentos": {
       "post": {
         "description": "Responde na hora e devolve um identificador. O resultado nao vem aqui:\nconsulte `GET /v1/documentos/{id}` ate o estado sair de `RECEIVED` ou\n`PROCESSING`, a cada 2 a 5 segundos.\n\n- `201` no primeiro envio de um conteudo, `200` quando aquele hash ja existe.\n  O reenvio nao reprocessa e nao paga chamada nova, mas registra a submissao.\n  O corpo traz `jaExistia` para distinguir os dois sem olhar o status code.\n- O tipo sai dos bytes, e nunca do nome ou do `Content-Type`. Aceita JPEG,\n  PNG, HEIC, HEIF e PDF, ate 25 MB.\n\nTempo de processamento, retentativa e custo estao em `docs/especificacao.md`.",
@@ -219,6 +242,65 @@
       }
     },
     "schemas": {
+      "EndpointDaRaiz": {
+        "type": "object",
+        "properties": {
+          "metodo": {
+            "type": "string",
+            "example": "POST"
+          },
+          "caminho": {
+            "type": "string",
+            "example": "/v1/documentos"
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Recebe um documento"
+          }
+        },
+        "required": [
+          "metodo",
+          "caminho",
+          "descricao"
+        ]
+      },
+      "RespostaDaRaiz": {
+        "type": "object",
+        "properties": {
+          "servico": {
+            "type": "string",
+            "example": "DOC Intelligence"
+          },
+          "versao": {
+            "type": "string",
+            "example": "v1"
+          },
+          "saude": {
+            "type": "string",
+            "example": "http://localhost:3000/healthz",
+            "description": "Link absoluto, para colar no navegador."
+          },
+          "documentacao": {
+            "type": "object",
+            "example": "http://localhost:3000/v1/docs",
+            "nullable": true,
+            "description": "Nulo quando DOCS_HABILITADO esta desligado, para nao anunciar um caminho que responde 404."
+          },
+          "endpoints": {
+            "description": "As operacoes da API, com metodo e template. Nao sao links absolutos de proposito: /v1/documentos so aceita POST, e anunciar a URL crua faria quem clicasse receber 404.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndpointDaRaiz"
+            }
+          }
+        },
+        "required": [
+          "servico",
+          "versao",
+          "saude",
+          "endpoints"
+        ]
+      },
       "RespostaDeRecebimento": {
         "type": "object",
         "properties": {

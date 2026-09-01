@@ -29,9 +29,12 @@ sozinhas na subida da API. Quando a API ficar saudável, o log diz para onde ir:
 
 | Onde | O quê |
 |---|---|
+| <http://localhost:3000/> | lista os endpoints, para não precisar adivinhar |
 | <http://localhost:3000/v1/docs> | contrato navegável, com os campos já preenchidos |
 | <http://localhost:3000/healthz> | verifica se o serviço está de pé e enxerga o banco |
-| <http://localhost:3000/> | **404 de propósito.** Não existe rota nem redirecionamento na raiz |
+
+As três não exigem chave de API. Elas não devolvem dado de documento nenhum, e
+exigir chave na raiz trocaria a descoberta por um `401`.
 
 A chave de API padrão é `chave-de-desenvolvimento`, e ela já vem preenchida na
 documentação para funcionar sem configuração. É valor de desenvolvimento, não

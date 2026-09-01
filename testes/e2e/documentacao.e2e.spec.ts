@@ -8,9 +8,43 @@ import { expect, test } from '@playwright/test';
  * pelo README.
  */
 test.describe('documentacao do contrato', () => {
-  test('a raiz responde 404, sem rota e sem redirecionamento', async ({ request }) => {
-    const resposta = await request.get('/', { maxRedirects: 0 });
-    expect(resposta.status()).toBe(404);
+  /**
+   * A raiz ja respondeu 404 de proposito. A decisao foi revista, e o registro
+   * esta na revisao do ADR-013: o 404 evitava rota escondida e nao resolvia o
+   * problema de alguem abrir o servico e nao saber para onde ir.
+   */
+  test('a raiz lista os endpoints, sem exigir chave', async ({ request }) => {
+    const resposta = await request.get('/', {
+      headers: { 'x-api-key': '' },
+      maxRedirects: 0,
+    });
+    expect(resposta.status()).toBe(200);
+
+    const corpo = await resposta.json();
+    expect(corpo.servico).toBe('DOC Intelligence');
+    // Links absolutos, montados a partir do proprio pedido, para funcionarem
+    // colados no navegador.
+    expect(corpo.documentacao).toMatch(/\/v1\/docs$/);
+    expect(corpo.saude).toMatch(/\/healthz$/);
+    // Operacoes com metodo e template, e nao link cru: /v1/documentos so aceita
+    // POST, entao um link ali daria 404 para quem clicasse.
+    expect(corpo.endpoints).toEqual([
+      { metodo: 'POST', caminho: '/v1/documentos', descricao: expect.any(String) },
+      { metodo: 'GET', caminho: '/v1/documentos/{id}', descricao: expect.any(String) },
+    ]);
+  });
+
+  /**
+   * Uma raiz de descoberta que anuncia link quebrado e pior do que raiz
+   * nenhuma. Este teste segue cada link e cobra que ele leve a algum lugar.
+   */
+  test('todo link absoluto da raiz responde 200 sem chave', async ({ request }) => {
+    const raiz = await (await request.get('/', { headers: { 'x-api-key': '' } })).json();
+
+    for (const link of [raiz.saude, raiz.documentacao]) {
+      const resposta = await request.get(link, { headers: { 'x-api-key': '' } });
+      expect({ link, status: resposta.status() }).toEqual({ link, status: 200 });
+    }
   });
 
   test('a documentacao responde em /v1/docs', async ({ request }) => {

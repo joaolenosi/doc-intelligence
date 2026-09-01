@@ -19,8 +19,18 @@ describe('fronteira de autenticacao', () => {
     /@SemAutenticacao\(\)/.test(readFileSync(arquivo, 'utf8')),
   );
 
-  it('so o controller de saude fica fora da fronteira', () => {
-    expect(comExcecao.map((a) => a.replace(`${RAIZ}/`, ''))).toEqual([
+  /**
+   * Duas excecoes, e as duas declaradas. Este teste ja exigiu uma so, e quebrou
+   * quando a raiz virou rota de descoberta: era para isso que ele servia.
+   *
+   * As duas tem a mesma justificativa: elas nao devolvem dado de documento
+   * nenhum, e exigir chave nelas trocaria o proposito de cada uma por um 401. A
+   * lista e literal de proposito, para uma terceira excecao nao entrar sem
+   * alguem escrever o nome dela aqui.
+   */
+  it('so a saude e a raiz ficam fora da fronteira', () => {
+    expect(comExcecao.map((a) => a.replace(`${RAIZ}/`, '')).sort()).toEqual([
+      'src/infraestrutura/http/raiz.controller.ts',
       'src/infraestrutura/http/saude.controller.ts',
     ]);
   });
@@ -45,6 +55,9 @@ describe('fronteira de autenticacao', () => {
     expect(configuracao).toMatch(/texto\('DOCS_HABILITADO', 'false'\)/);
   });
 
+  // A raiz lista endpoints, e a documentacao continua morando em caminho
+  // proprio: sao coisas diferentes, e misturar as duas faria a raiz servir uma
+  // pagina em vez de um indice.
   it('a documentacao nao mora na raiz', () => {
     const documentacao = readFileSync(
       join(RAIZ, 'src/infraestrutura/http/documentacao.ts'),
@@ -55,11 +68,13 @@ describe('fronteira de autenticacao', () => {
 
   // Se um dia entrar, precisa entrar protegida ou com excecao declarada, e este
   // teste e o lembrete de que a decisao passa por aqui.
-  it('todo controller declarado esta sob o guard, exceto os listados acima', () => {
+  it('todo controller que serve dado de documento esta sob o guard', () => {
     const controllers = arquivos.filter((arquivo) =>
       /@Controller\(/.test(readFileSync(arquivo, 'utf8')),
     );
     expect(controllers.length).toBeGreaterThan(0);
-    expect(controllers.length - comExcecao.length).toBe(controllers.length - 1);
+    // Sobra o que serve documento. Se um controller novo nascer isento, esta
+    // conta muda e o teste acima aponta o arquivo.
+    expect(controllers.length - comExcecao.length).toBe(controllers.length - 2);
   });
 });

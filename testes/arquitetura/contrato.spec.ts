@@ -22,13 +22,26 @@ describe('contrato OpenAPI', () => {
     expect(gerado).toEqual(versionado);
   });
 
-  it('expoe exatamente as rotas que existem, e nada na raiz', () => {
+  it('expoe exatamente as rotas que existem', () => {
     expect(Object.keys(versionado.paths).sort()).toEqual([
+      '/',
       '/healthz',
       '/v1/documentos',
       '/v1/documentos/{id}',
     ]);
-    expect(versionado.paths['/']).toBeUndefined();
+  });
+
+  // Este teste ja afirmou o contrario, quando a raiz respondia 404 de
+  // proposito. A decisao foi revista, e o registro esta no ADR-013.
+  it('a raiz lista os endpoints e nao devolve dado de documento', () => {
+    const propriedades = versionado.components.schemas.RespostaDaRaiz.properties;
+    expect(Object.keys(propriedades).sort()).toEqual([
+      'documentacao',
+      'endpoints',
+      'saude',
+      'servico',
+      'versao',
+    ]);
   });
 
   it('documenta os dois codigos de reenvio, que sao o coracao do fato (c)', () => {

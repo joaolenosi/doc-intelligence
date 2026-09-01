@@ -7,8 +7,10 @@ import { Configuracao } from '../config/configuracao';
 import { DocumentosController } from '../http/documentos.controller';
 import { FiltroDeErro } from '../http/filtros/filtro-de-erro';
 import { ApiKeyGuard } from '../http/guards/api-key.guard';
+import { RaizController } from '../http/raiz.controller';
 import { SaudeController } from '../http/saude.controller';
 import { compor } from './composicao';
+import { PORTAS } from './tokens';
 
 /**
  * O modulo da API.
@@ -25,9 +27,12 @@ export class ApiModule {
 
     return {
       module: ApiModule,
-      controllers: [DocumentosController, SaudeController],
+      controllers: [RaizController, DocumentosController, SaudeController],
       providers: [
         { provide: DataSource, useValue: dataSource },
+        // Interface some em tempo de execucao, entao a configuracao entra por
+        // simbolo, como as portas. Ver modulos/tokens.ts.
+        { provide: PORTAS.configuracao, useValue: configuracao },
         { provide: ReceberDocumento, useValue: dependencias.receber },
         { provide: ConsultarDocumento, useValue: dependencias.consultar },
         // O guard e global: rota nova nasce protegida, em vez de depender de
