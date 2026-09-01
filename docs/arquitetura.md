@@ -39,7 +39,7 @@ src/
     documento/        entidade, estados, tipos, campo, confiança, políticas
     submissao/        entidade
   aplicacao/
-    portas/           as nove interfaces abaixo
+    portas/           as doze interfaces abaixo
     casos-de-uso/     receber, processar, consultar
   infraestrutura/
     http/             controller, DTO de entrada, guard, filtro de erro
@@ -65,15 +65,30 @@ de verificar quando tudo roda junto.
 
 | Porta | O que abstrai | Adaptador na fatia |
 |---|---|---|
-| `RepositorioDeDocumento` | persistência do documento | TypeORM sobre Postgres |
-| `RepositorioDeSubmissao` | persistência do envio | TypeORM sobre Postgres |
+| `RepositorioDeDocumento` | documento e campos extraídos | TypeORM sobre Postgres |
+| `RepositorioDeSubmissao` | cada envio, e o resumo que o `GET` devolve | TypeORM sobre Postgres |
+| `RegistroDeProcessamento` | uma linha por tentativa, com custo e duração | TypeORM sobre Postgres |
+| `RegistroDeAuditoria` | trilha de acesso | TypeORM sobre Postgres |
 | `CatalogoDeTipos` | campos obrigatórios e template de nome por tipo | TypeORM sobre Postgres |
-| `ArmazenamentoDeArquivo` | onde o binário mora | disco local |
+| `UnidadeDeTrabalho` | um bloco de escritas como uma coisa só | transação do TypeORM |
+| `ArmazenamentoDeArquivo` | onde o binário mora, e a chave dele | disco local |
 | `InspetorDeArquivo` | tipo real pelo conteúdo | leitura de magic bytes |
 | `CalculadoraDeHash` | identidade do conteúdo | sha-256 |
 | `ExtratorDeDocumento` | o modelo multimodal | dublê determinístico |
 | `PublicadorDeProcessamento` | enfileirar | BullMQ ou Postgres |
 | `Relogio` | tempo | relógio do sistema |
+
+O `ArmazenamentoDeArquivo` gera a chave, e não a recebe. Isso concentra num
+lugar só a garantia de que o caminho no disco nunca deriva de nada que veio de
+fora, que é a defesa contra path traversal do fato (b), e a segunda linha de
+defesa é a `ChaveArmazenamento` só aceitar UUID.
+
+A `UnidadeDeTrabalho` existe por causa de uma afirmação do ADR-004 que só é
+verdadeira se houver transação: com o adaptador de fila em Postgres, gravar o
+documento e criar o trabalho cabem na mesma transação. Com o BullMQ a janela
+continua existindo, porque o job vive no Redis e nenhuma transação do Postgres
+alcança ele. A porta garante atomicidade de quem participa da transação, e o
+Redis não participa.
 
 `Relogio` é porta porque a política de nomenclatura usa data e a política de
 retry usa tempo, e teste que depende do relógio real é teste que falha sozinho

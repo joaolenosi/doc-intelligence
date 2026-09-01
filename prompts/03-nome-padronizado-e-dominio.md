@@ -55,3 +55,9 @@ anotado em `docs/uso-de-ia.md`.
 ```
 pode seguir com as políticas e as entidades
 ```
+
+## Prompt 13
+
+```
+Podee manter essa implementacao, e vamos seguir para etapa 3.
+```
