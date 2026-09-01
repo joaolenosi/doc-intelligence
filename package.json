@@ -1,0 +1,21 @@
+{
+  "name": "doc-intelligence",
+  "version": "0.1.0",
+  "description": "Servico de inteligencia documental. Trilha A do desafio.",
+  "private": true,
+  "scripts": {
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/infraestrutura/persistencia/typeorm/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/infraestrutura/persistencia/typeorm/data-source.ts",
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/infraestrutura/persistencia/typeorm/data-source.ts"
+  },
+  "dependencies": {
+    "pg": "8.13.1",
+    "reflect-metadata": "0.2.2",
+    "typeorm": "0.3.20"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "ts-node": "10.9.2",
+    "typescript": "5.7.2"
+  }
+}
