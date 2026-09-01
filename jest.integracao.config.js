@@ -13,6 +13,9 @@ module.exports = {
   testEnvironment: 'node',
   rootDir: '.',
   testMatch: ['<rootDir>/testes/integracao/**/*.spec.ts'],
+  // Cria o banco de testes antes de tudo. Ele e separado do banco do compose
+  // de proposito: com o ambiente de pe, o worker consome a mesma fila.
+  globalSetup: '<rootDir>/testes/integracao/preparar-banco.ts',
   testTimeout: 30000,
   maxWorkers: 1,
 };
