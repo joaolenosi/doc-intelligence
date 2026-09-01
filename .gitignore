@@ -26,3 +26,8 @@ testes/e2e/resultado.json
 # guarda escolhas de quem esta rodando, e nao configuracao do projeto. O que e
 # do projeto esta em .mcp.json e em CLAUDE.md, os dois versionados.
 .claude/settings.local.json
+
+# A carta de fechamento e o corpo do e-mail vao por e-mail, e nao dentro do
+# repositorio.
+carta-de-fechamento*
+email-de-envio.md
