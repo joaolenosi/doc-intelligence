@@ -44,8 +44,14 @@ Recebe um documento. `multipart/form-data`, campo `arquivo`.
 | Header | Obrigatório | Para quê |
 |---|---|---|
 | `X-API-Key` | sim | fronteira de autenticação |
+| `X-Sistema-Origem` | sim | qual sistema interno enviou, e por qual canal o documento chegou |
 | `Idempotency-Key` | não | mesma requisição repetida por timeout de rede não cria duas submissões |
-| `X-Origem` | não | qual sistema interno enviou, para rastreio |
+
+A unicidade da chave de idempotência é por par `(sistema de origem, chave)`, e
+só quando a chave vem preenchida. Chave única global seria errado aqui: dois
+sistemas internos geram identificador sem nenhuma coordenação entre si, e uma
+colisão acidental faria um deles descartar silenciosamente o envio do outro. É
+o que torna `X-Sistema-Origem` obrigatório e não opcional.
 
 Responde `201` no primeiro envio de um conteúdo e `200` quando aquele hash já
 existe, devolvendo nos dois casos o mesmo formato. O reenvio não é erro, é o
@@ -91,10 +97,18 @@ disco.
   "campos": [
     { "nome": "nome", "valor": "MARIA DA SILVA", "confianca": 0.96, "origem": "MODELO" }
   ],
-  "modelo": "duble-deterministico-1",
-  "versaoPrompt": "extracao-rg.v1",
-  "tentativas": 1,
-  "erro": null,
+  "submissoes": {
+    "total": 3,
+    "canais": ["crm-atendimento", "portal-balcao"],
+    "nomeOriginalMaisRecente": "WhatsApp Image 2026-08-11 at 09.12.33.jpeg"
+  },
+  "processamento": {
+    "tentativas": 2,
+    "provedor": "duble",
+    "modelo": "duble-deterministico-1",
+    "versaoPrompt": "extracao-rg.v1",
+    "erro": null
+  },
   "criadoEm": "2026-08-31T12:04:11.221Z",
   "processadoEm": "2026-08-31T12:04:29.884Z"
 }
@@ -103,6 +117,19 @@ disco.
 `campos` só aparece preenchido quando o estado é `PROCESSED` ou
 `REVIEW_REQUIRED`. Em `RECEIVED`, `PROCESSING`, `FAILED` e `REJECTED` ele vem
 vazio, porque não existe resultado. `404` quando o id não existe.
+
+O bloco `submissoes` existe porque o nome original e a origem pertencem à
+submissão, e não ao documento. `nomeOriginalMaisRecente` é o nome da submissão
+mais recente, `total` é quantas vezes aquele conteúdo chegou e `canais` são os
+sistemas por onde ele chegou, sem repetição. É a resposta direta ao fato (c):
+sem esses três campos, quem consome não consegue distinguir um documento que
+chegou uma vez de outro que chegou cinco.
+
+O bloco `processamento` é montado a partir da última tentativa registrada na
+tabela `processamento`, e não de colunas do documento. `tentativas` é a
+contagem de tentativas daquele documento, que é quanto ele custou em chamadas.
+`erro` traz código e mensagem técnica da última tentativa quando o estado é
+`FAILED`, e é nulo nos demais.
 
 `modelo` e `versaoPrompt` estão na resposta de propósito, e não só no banco. O
 fato (f) diz que o modelo vai trocar de versão e os prompts vão mudar mais de
@@ -171,12 +198,24 @@ extraído mora numa tabela própria com a confiança individual, e não num JSON
 
 ## Tipos de documento e campos obrigatórios
 
-Lista fechada nesta fatia. Tipo que o extrator devolver fora dela é tratado como
-`DESCONHECIDO` e o documento vai para `REVIEW_REQUIRED`, porque tipo que o
-sistema não conhece é precisamente o caso em que ele não deveria decidir
-sozinho.
+Lista fechada, mantida na tabela `tipo_documento` e não em constante no código.
+Cada tipo guarda o código, o nome legível, o template do nome padronizado e a
+lista de campos obrigatórios daquele tipo.
 
-| Tipo | Campos obrigatórios |
+Os dois últimos são o motivo de a tabela existir. O padrão de nomes do
+escritório é decisão de negócio e muda sem aviso, e a lista de campos
+obrigatórios é o que permite exigir conferência de uma identidade sem número
+sem exigir o mesmo de um contrato. Nenhuma das duas coisas deveria precisar de
+deploy para mudar.
+
+O domínio continua dono da regra: a política de confiança sabe comparar
+confiança com limiar e a política de nomenclatura sabe montar e sanitizar o
+nome. O que vem do catálogo são os parâmetros, carregados e entregues às
+políticas como dados. O raciocínio está no ADR-010.
+
+Conteúdo inicial do catálogo:
+
+| Código | Campos obrigatórios |
 |---|---|
 | `RG` | `nome`, `filiacao`, `dataNascimento`, `numero`, `orgaoEmissor` |
 | `CPF` | `nome`, `numero` |
@@ -184,14 +223,22 @@ sozinho.
 | `CONTRACHEQUE` | `nome`, `competencia`, `valorLiquido` |
 | `DESCONHECIDO` | nenhum |
 
-Os campos do `RG` são os que o próprio enunciado cita. Os outros três tipos
-saem dos exemplos do cenário. Se existe uma lista fechada de tipos que
-interessam ao escritório, ela substitui esta, e essa é uma das perguntas que
-mandei por e-mail.
+Os campos do `RG` são os que o próprio enunciado cita. Os outros três saem dos
+exemplos do cenário. Se existe uma lista fechada de tipos que interessam ao
+escritório, ela substitui esta, e essa é uma das perguntas que mandei por
+e-mail. Trocá-la passa a ser uma linha de SQL, e não um deploy.
+
+`doc_tipo_documento` é chave estrangeira para o catálogo, então o banco impõe a
+lista fechada. Tipo que o extrator devolver fora dela vira `DESCONHECIDO`, que
+existe como linha e sem campos obrigatórios, e o documento vai para
+`REVIEW_REQUIRED`, porque tipo que o sistema não conhece é precisamente o caso
+em que ele não deveria decidir sozinho.
 
 ## Nome padronizado
 
-Formato `{TIPO}_{TITULAR}_{IDENTIFICADOR}_{AAAA-MM-DD}.{extensao}`, por exemplo
+O formato de cada tipo vem de `tpd_template_nome`, no catálogo, e não de
+constante no código. Para o `RG` o template é
+`{TIPO}_{TITULAR}_{IDENTIFICADOR}_{AAAA-MM-DD}.{extensao}`, que produz
 `RG_MARIA_DA_SILVA_123456789_2026-08-31.jpg`.
 
 O titular vira ASCII maiúsculo sem acento, com `_` no lugar de espaço e corte em
@@ -220,50 +267,61 @@ migration escrita em SQL.
 
 Mapa de prefixos:
 
-| Tabela | Prefixo |
-|---|---|
-| `documento` | `doc` |
-| `submissao` | `sub` |
-| `campo_extraido` | `cae` |
-| `processamento_trabalho` | `prt` |
-| `evento_auditoria` | `eva` |
+| Tabela | Prefixo | Para quê |
+|---|---|---|
+| `documento` | `doc` | o conteúdo, identificado pelo hash |
+| `submissao` | `sub` | cada envio daquele conteúdo |
+| `tipo_documento` | `tpd` | catálogo de tipos, template de nome e obrigatórios |
+| `campo_extraido` | `cae` | um campo por linha, com confiança individual |
+| `processamento` | `pro` | uma linha por tentativa de chamada ao modelo |
+| `fila_processamento` | `flp` | fila em banco do adaptador Postgres |
+| `evento_auditoria` | `eva` | trilha de acesso |
+
+A tabela de controle de migrations do TypeORM não segue essa convenção, porque
+é do framework e não do domínio. É a única exceção.
 
 ### `documento`
 
 | Coluna | Tipo | Observação |
 |---|---|---|
 | `doc_id` | `BIGSERIAL` | PK |
-| `doc_hash_conteudo` | `VARCHAR(64)` | sha-256 em hex, `UNIQUE`, é a identidade |
-| `doc_tamanho_bytes` | `BIGINT` | |
+| `doc_hash_conteudo` | `CHAR(64)` | sha-256 em hex, `UNIQUE`, é a identidade |
+| `doc_chave_armazenamento` | `UUID` | gerada por nós, é o único que vira caminho no disco |
 | `doc_tipo_midia` | `VARCHAR(100)` | detectado por inspeção, nunca o informado |
-| `doc_extensao` | `VARCHAR(10)` | derivada do tipo detectado |
-| `doc_caminho_armazenamento` | `TEXT` | caminho relativo, pelo hash |
-| `doc_estado` | `VARCHAR(30)` | |
-| `doc_tipo_documento` | `VARCHAR(50)` | nulo até processar |
-| `doc_confianca_tipo` | `NUMERIC(4,3)` | nulo até processar |
-| `doc_nome_padronizado` | `TEXT` | nulo até processar |
-| `doc_tentativas` | `SMALLINT` | quantas chamadas ao extrator já foram pagas |
-| `doc_erro_codigo` | `VARCHAR(50)` | |
-| `doc_erro_mensagem` | `TEXT` | técnica, nunca conteúdo do documento |
-| `doc_modelo` | `VARCHAR(100)` | qual modelo produziu o resultado |
-| `doc_versao_prompt` | `VARCHAR(50)` | qual versão de prompt produziu o resultado |
+| `doc_tamanho_bytes` | `BIGINT` | |
+| `doc_situacao` | `VARCHAR(30)` | `CHECK` nos seis valores do ciclo de vida |
+| `doc_tpd_id` | `INTEGER` | FK para `tipo_documento`, nulo até classificar |
+| `doc_confianca_tipo` | `NUMERIC(4,3)` | confiança consolidada do tipo |
+| `doc_nome_sugerido` | `TEXT` | nulo até processar |
 | `doc_versao` | `SMALLINT` | lock otimista, prepara o fato (g) |
 | `doc_criado_em` | `TIMESTAMPTZ` | |
 | `doc_atualizado_em` | `TIMESTAMPTZ` | |
 | `doc_processado_em` | `TIMESTAMPTZ` | |
 
 Índice único em `doc_hash_conteudo`, que é o que faz a deduplicação ser garantia
-do banco e não torcida da aplicação. Índice em `(doc_estado, doc_criado_em)`,
+do banco e não torcida da aplicação. Índice em `(doc_situacao, doc_criado_em)`,
 que serve tanto para a reconciliação de documentos travados quanto para a fila
 de conferência quando ela existir.
 
-`doc_tentativas` está aqui, e não só na fila, porque é a coluna que responde
-quanto dinheiro aquele documento já custou. Cada chamada é cobrada, então isso é
-informação de negócio.
+`doc_chave_armazenamento` e o nome original são coisas separadas de propósito, e
+o nome original nem sequer mora aqui: ele pertence à submissão. O nome vem da
+câmera e da mão de quem enviou, e o fato (b) diz que não há validação nenhuma do
+outro lado, então ele nunca pode virar caminho no disco. A chave de
+armazenamento é um UUID gerado por nós, e é a única coisa que o adaptador de
+arquivo conhece.
+
+`doc_situacao` é `VARCHAR` com `CHECK` em vez de chave estrangeira para uma
+tabela de apoio. Estado novo sempre exige código novo, então uma tabela de
+estados só acrescentaria uma junção sem acrescentar flexibilidade real.
+`tipo_documento` é o caso oposto, e por isso é tabela.
 
 `doc_versao` não é usado nesta fatia. Ele existe porque o fato (g) diz que duas
 pessoas podem abrir a fila ao mesmo tempo, e adicionar controle de concorrência
 depois, numa tabela que já tem dados, é caro. Uma coluna vazia agora é barata.
+
+Não existe `doc_tentativas`, `doc_modelo`, `doc_versao_prompt` nem
+`doc_erro_codigo`. Essas quatro coisas são propriedade de uma tentativa, e não
+do documento, e moram em `processamento`. O raciocínio está no ADR-011.
 
 ### `submissao`
 
@@ -273,13 +331,35 @@ depois, numa tabela que já tem dados, é caro. Uma coluna vazia agora é barata
 | `sub_doc_id` | `BIGINT` | FK para `documento` |
 | `sub_nome_original` | `TEXT` | como veio, guardado só para rastreio |
 | `sub_tipo_midia_informado` | `VARCHAR(100)` | o que o cliente disse, para comparar com o real |
-| `sub_origem` | `VARCHAR(50)` | qual sistema interno enviou |
-| `sub_chave_idempotencia` | `VARCHAR(100)` | `UNIQUE` quando não nulo |
+| `sub_sistema_origem` | `VARCHAR(50)` | qual sistema interno enviou, e o canal |
+| `sub_chave_idempotencia` | `VARCHAR(100)` | opcional |
 | `sub_criado_em` | `TIMESTAMPTZ` | |
+
+Índice único parcial em `(sub_sistema_origem, sub_chave_idempotencia)`, só
+quando a chave não é nula. O escopo por sistema é deliberado e está no ADR-006.
+
+Índice em `(sub_doc_id, sub_criado_em DESC)`, que é o que o `GET` usa para achar
+a submissão mais recente sem varrer.
 
 Guardo `sub_tipo_midia_informado` ao lado de `doc_tipo_midia` de propósito. A
 diferença entre os dois é a medida de quanto o cliente erra, e o fato (b) diz
 que não há validação nenhuma do lado de quem envia.
+
+### `tipo_documento`
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `tpd_id` | `SERIAL` | PK |
+| `tpd_codigo` | `VARCHAR(50)` | `UNIQUE`, é o que aparece no contrato |
+| `tpd_nome` | `VARCHAR(100)` | legível, para interface |
+| `tpd_template_nome` | `TEXT` | template do nome padronizado daquele tipo |
+| `tpd_campos_obrigatorios` | `TEXT[]` | quais campos aquele tipo exige |
+| `tpd_ativo` | `BOOLEAN` | tipo aposentado deixa de ser classificável sem perder histórico |
+| `tpd_criado_em` | `TIMESTAMPTZ` | |
+
+Populada por migration, incluindo `DESCONHECIDO` com lista vazia. `tpd_ativo`
+existe porque apagar um tipo quebraria a chave estrangeira dos documentos já
+classificados com ele.
 
 ### `campo_extraido`
 
@@ -291,51 +371,97 @@ que não há validação nenhuma do lado de quem envia.
 | `cae_valor` | `TEXT` | dado pessoal, às vezes sensível |
 | `cae_confianca` | `NUMERIC(4,3)` | por campo, não por documento |
 | `cae_origem` | `VARCHAR(20)` | `MODELO` ou `CORRECAO_HUMANA` |
-| `cae_criado_em` | `TIMESTAMPTZ` | |
+| `cae_atualizado_em` | `TIMESTAMPTZ` | |
 
-Único em `(cae_doc_id, cae_nome)`. `cae_origem` já existe porque o comportamento
-4 termina em "a pessoa conferente corrige o que a máquina errou", e depois da
-correção ninguém vai lembrar qual valor veio do modelo e qual veio da pessoa se
-a coluna não estiver lá.
+Único em `(cae_doc_id, cae_nome)`. Nada de JSONB aqui, porque a regra de
+confiança avalia campo a campo. O raciocínio está no ADR-007.
+
+`cae_origem` indica a origem do **valor atual**. Como existe uma linha por
+documento e campo, uma correção humana substitui o valor do modelo, e o valor
+anterior não é preservado. Para esta fatia isso é aceitável. O histórico e a
+comparação entre resposta do modelo e correção humana ficam registrados como
+evolução em `docs/escopo-nao-implementado.md`, porque é justamente o que
+permitiria medir a taxa real de acerto do fornecedor.
 
 Esta é a tabela que concentra o dado pessoal do fato (d). É a única do sistema
 cujo conteúdo nunca pode aparecer em log, em mensagem de erro ou em resposta que
 não seja a consulta por identificador.
 
-### `processamento_trabalho`
+### `processamento`
 
-Só existe quando o adaptador de fila é o de Postgres.
+Uma linha por tentativa de chamada ao modelo, e não por documento.
 
 | Coluna | Tipo | Observação |
 |---|---|---|
-| `prt_id` | `BIGSERIAL` | PK |
-| `prt_doc_id` | `BIGINT` | FK para `documento` |
-| `prt_estado` | `VARCHAR(20)` | `PENDENTE`, `EM_EXECUCAO`, `CONCLUIDO`, `FALHOU` |
-| `prt_tentativas` | `SMALLINT` | |
-| `prt_disponivel_em` | `TIMESTAMPTZ` | é o backoff, o consumo só pega o que já venceu |
-| `prt_bloqueado_em` | `TIMESTAMPTZ` | detecta worker que morreu segurando trabalho |
-| `prt_criado_em` | `TIMESTAMPTZ` | |
-| `prt_atualizado_em` | `TIMESTAMPTZ` | |
+| `pro_id` | `BIGSERIAL` | PK |
+| `pro_doc_id` | `BIGINT` | FK para `documento` |
+| `pro_tentativa` | `SMALLINT` | 1, 2, 3, único junto com o documento |
+| `pro_provedor` | `VARCHAR(50)` | quem atendeu, `duble` nesta fatia |
+| `pro_modelo` | `VARCHAR(100)` | qual modelo |
+| `pro_versao_prompt` | `VARCHAR(50)` | qual versão de prompt |
+| `pro_sucesso` | `BOOLEAN` | |
+| `pro_duracao_ms` | `INTEGER` | |
+| `pro_custo_estimado` | `NUMERIC(10,6)` | quanto aquela chamada custou |
+| `pro_erro_codigo` | `VARCHAR(50)` | nulo quando teve sucesso |
+| `pro_erro_mensagem` | `TEXT` | técnica, nunca conteúdo do documento |
+| `pro_iniciado_em` | `TIMESTAMPTZ` | |
+| `pro_terminado_em` | `TIMESTAMPTZ` | |
 
-Índice em `(prt_estado, prt_disponivel_em)`. O consumo é
+Único em `(pro_doc_id, pro_tentativa)`. Índice em
+`(pro_doc_id, pro_iniciado_em DESC)` para o `GET` achar a última tentativa.
+
+Uma linha por tentativa, e não um contador no documento, porque um contador
+responde "quantas vezes" e nada mais. Com uma linha por tentativa o sistema
+responde quanto o fornecedor custou no mês, qual a taxa real de falha dele e se
+a versão nova do modelo ficou mais lenta que a anterior. Num serviço cobrado por
+chamada, essa é a informação que decide contrato. Está no ADR-011.
+
+### `fila_processamento`
+
+Fila em banco usada pelo adaptador Postgres.
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `flp_id` | `BIGSERIAL` | PK |
+| `flp_doc_id` | `BIGINT` | FK para `documento` |
+| `flp_situacao` | `VARCHAR(20)` | `PENDENTE`, `EM_EXECUCAO`, `CONCLUIDO`, `FALHOU` |
+| `flp_tentativas` | `SMALLINT` | |
+| `flp_disponivel_em` | `TIMESTAMPTZ` | é o backoff, o consumo só pega o que já venceu |
+| `flp_reservado_em` | `TIMESTAMPTZ` | detecta worker que morreu segurando trabalho |
+| `flp_reservado_por` | `VARCHAR(100)` | identificação do worker |
+| `flp_criado_em` | `TIMESTAMPTZ` | |
+| `flp_atualizado_em` | `TIMESTAMPTZ` | |
+
+Índice em `(flp_situacao, flp_disponivel_em)`. O consumo é
 `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`, que é o mesmo mecanismo que resolve
 o fato (g) mais tarde. Implementá-lo aqui é conveniente: a fila de conferência
 depois reusa o padrão em vez de inventar outro.
+
+**A tabela é criada sempre**, independente de qual adaptador de fila esteja
+ativo. Migration condicional a variável de ambiente produz bancos diferentes com
+o mesmo número de migration, o que transforma qualquer diagnóstico futuro em
+adivinhação. Uma tabela vazia não custa nada.
 
 ### `evento_auditoria`
 
 | Coluna | Tipo | Observação |
 |---|---|---|
 | `eva_id` | `BIGSERIAL` | PK |
-| `eva_doc_id` | `BIGINT` | FK, nulo permitido |
-| `eva_tipo` | `VARCHAR(50)` | |
-| `eva_dados` | `JSONB` | formato varia por tipo de evento |
+| `eva_doc_id` | `BIGINT` | FK, `ON DELETE SET NULL` |
+| `eva_acao` | `VARCHAR(50)` | |
+| `eva_ator` | `VARCHAR(100)` | qual sistema ou pessoa |
+| `eva_detalhe` | `JSONB` | formato varia por ação |
 | `eva_criado_em` | `TIMESTAMPTZ` | |
 
+A chave estrangeira é `ON DELETE SET NULL` porque o registro de que alguém
+acessou um documento precisa sobreviver ao apagamento do documento. Quando a
+política de retenção existir, apagar o dado pessoal não pode apagar a prova de
+quem o acessou antes.
+
 É o único lugar com JSONB, porque é o único lugar onde o formato varia de
-verdade. `eva_dados` nunca recebe valor de campo extraído: registra que a
-extração aconteceu, quanto demorou, qual modelo, qual versão de prompt e quantos
-campos vieram, não o que estava escrito no documento.
+verdade. `eva_detalhe` carrega nome de campo e contagem, nunca valor extraído:
+registra que a extração aconteceu, quanto demorou e quantos campos vieram, não o
+que estava escrito no documento.
 
 ## Extrator e o dublê
 
