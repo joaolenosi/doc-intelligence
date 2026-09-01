@@ -124,14 +124,33 @@ npm install
 # 1. Unidade. Não exige nada: nem banco, nem Redis, nem Docker.
 npm test
 
-# 2. Integração. Exige só o Postgres.
-docker compose up -d postgres
+# 2. Integração. Exige Postgres e Redis.
+docker compose up -d postgres redis
 npm run test:integracao
 
 # 3. Ponta a ponta. Exige o ambiente inteiro de pé.
 docker compose up -d --build
 npm run test:e2e
 ```
+
+A integração precisa do Redis porque uma das quatro suítes é a do adaptador de
+fila em BullMQ, e ela publica num Redis de verdade. Sem ele o cliente fica
+tentando reconectar sem prazo, e o sintoma é a suíte parada sem mensagem
+nenhuma, que é pior do que um erro.
+
+**Se você já tem um PostgreSQL instalado na máquina**, ele provavelmente ocupa a
+porta 5432, e as suítes que rodam fora do Docker vão bater nele em vez de bater
+no container. O erro é `password authentication failed for user "doc"`, que
+parece problema de credencial e é problema de porta. Suba o container em outra
+porta e aponte os testes para ela:
+
+```bash
+POSTGRES_PORT=5433 docker compose up -d postgres redis
+POSTGRES_PORT=5433 npm run test:integracao
+```
+
+Isso muda só o lado de fora: dentro da rede do Docker a API e o worker continuam
+falando com `postgres:5432`, então o ambiente do compose não é afetado.
 
 O banco de testes (`doc_intelligence_teste`) é **criado automaticamente** e é
 separado do banco da aplicação. A separação não é preciosismo: com o ambiente de

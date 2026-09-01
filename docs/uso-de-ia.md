@@ -174,6 +174,19 @@ A correção é um `.gitattributes` marcando `fixtures/**` como `-text`. O conte
 no git sempre esteve certo, então quem clonou antes precisa de um
 `git add --renormalize .` para o disco voltar a bater.
 
+**E o README dizia que a integração exigia só o Postgres.** Exige Redis também,
+porque uma das quatro suítes é a do adaptador de fila em BullMQ. Segui a própria
+instrução do README, a suíte ficou dez minutos parada sem imprimir nada, e o
+motivo é que o cliente de Redis reconecta sem prazo: não há erro, há espera.
+
+É a mesma família das outras afirmações falsas sobre o repositório, e o que
+muda de novo é o suporte. Desta vez estava no arquivo que o enunciado nomeia
+como requisito, o README que permite a outra pessoa subir o projeto, e o modo de
+falhar era o pior possível para quem chega de fora, que é ficar parado sem
+mensagem. Aproveitei para escrever ali o caso do Postgres nativo ocupando a
+porta 5432, que foi o outro tempo que eu perdi nesta sessão, e que devolve um
+erro de autenticação para um problema que é de porta.
+
 **O agente parou de registrar os meus prompts e eu tive que cobrar.** O
 `CLAUDE.md` tem uma regra explícita mandando ele me lembrar de registrar o
 prompt antes de seguir para a próxima tarefa. Nos prompts 9 e 10 ele foi direto
