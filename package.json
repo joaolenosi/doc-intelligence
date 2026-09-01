@@ -8,7 +8,8 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/infraestrutura/persistencia/typeorm/data-source.ts",
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/infraestrutura/persistencia/typeorm/data-source.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:integracao": "jest --config jest.integracao.config.js"
   },
   "dependencies": {
     "pg": "8.13.1",
