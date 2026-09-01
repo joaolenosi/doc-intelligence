@@ -17,15 +17,13 @@ export function montarContrato(app: INestApplication): OpenAPIObject {
     .setTitle('DOC Intelligence')
     .setDescription(
       [
-        'Servico interno de inteligencia documental. Recebe imagem ou PDF, classifica,',
-        'extrai os campos do tipo e propoe um nome padronizado.',
+        'Servico interno que recebe imagem ou PDF, classifica, extrai os campos do tipo',
+        'e propoe um nome padronizado. O upload responde na hora e o resultado sai na',
+        'consulta.',
         '',
-        'O processamento nao acontece dentro da requisicao: o upload responde na hora com',
-        'um identificador e o cliente consulta ate o estado sair de RECEIVED ou PROCESSING.',
+        'Todo exemplo aqui e ficticio e nenhum numero passa em validacao de digito.',
         '',
-        'Todo exemplo deste documento e ficticio, e os numeros de documento reprovam em',
-        'qualquer validacao de digito, de proposito. O servico lida com dado pessoal e',
-        'nenhum dado real aparece aqui, nem em teste, nem em documentacao.',
+        'Projeto, decisoes e o que ficou de fora estao em `docs/` no repositorio.',
       ].join('\n'),
     )
     .setVersion('1')

@@ -65,3 +65,16 @@ fora da máquina local.
 
 O agente inverteu a ordem pedida e fez o README por último, para os exemplos de
 teste apontarem para fixtures que já existissem.
+
+## Prompt 21
+
+```
+[colou a descrição inteira do endpoint POST /v1/documentos, como aparecia no Swagger]
+
+ficou muito texto, vamos deixar mais simplificado, ate por que isso ja vai na documentacao.
+```
+
+**Contexto, escrito depois.** Estava certo. A descrição tinha virado um
+documento dentro do endpoint, repetindo o que já está na `especificacao.md` e
+nos ADRs. Ficou o que alguém precisa ler ali na hora de chamar, e o resto virou
+ponteiro.

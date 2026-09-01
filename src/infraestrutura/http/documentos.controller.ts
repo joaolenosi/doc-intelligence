@@ -50,7 +50,7 @@ import {
   example: 'chave-de-desenvolvimento',
   schema: { type: 'string', default: 'chave-de-desenvolvimento' },
   description:
-    'Fronteira de autenticacao entre sistemas internos, e nao seguranca de verdade. O valor preenchido aqui e o padrao do docker-compose deste projeto, entao a documentacao funciona sem configuracao nenhuma. Fora da maquina de desenvolvimento, troque a variavel API_KEY: o mecanismo real para trafego interno seria mTLS ou OAuth2 client credentials.',
+    'Fronteira de autenticacao entre sistemas internos, e nao seguranca de verdade. O valor preenchido e o padrao do docker-compose deste projeto; fora dele, troque a variavel API_KEY.',
 })
 @Controller('v1/documentos')
 export class DocumentosController {
@@ -63,45 +63,17 @@ export class DocumentosController {
   @ApiOperation({
     summary: 'Recebe um documento',
     description: [
-      'Responde na hora, sem esperar o modelo, e devolve um identificador para consulta.',
+      'Responde na hora e devolve um identificador. O resultado nao vem aqui:',
+      'consulte `GET /v1/documentos/{id}` ate o estado sair de `RECEIVED` ou',
+      '`PROCESSING`, a cada 2 a 5 segundos.',
       '',
-      '### Como saber que terminou',
+      '- `201` no primeiro envio de um conteudo, `200` quando aquele hash ja existe.',
+      '  O reenvio nao reprocessa e nao paga chamada nova, mas registra a submissao.',
+      '  O corpo traz `jaExistia` para distinguir os dois sem olhar o status code.',
+      '- O tipo sai dos bytes, e nunca do nome ou do `Content-Type`. Aceita JPEG,',
+      '  PNG, HEIC, HEIF e PDF, ate 25 MB.',
       '',
-      'O upload nao devolve o resultado: ele devolve `estado: RECEIVED`. Consulte',
-      '`GET /v1/documentos/{id}` ate o estado sair de `RECEIVED` ou `PROCESSING`.',
-      'Um intervalo de 2 a 5 segundos entre consultas e suficiente.',
-      '',
-      '### Quanto tempo leva',
-      '',
-      'A extracao e feita por um modelo multimodal de terceiro, que leva de 5 a 40',
-      'segundos por documento e as vezes falha. Nesta entrega o modelo e um duble',
-      'deterministico (`duble-deterministico-1`), entao o processamento termina em',
-      'dezenas de milissegundos, mas o desenho e o mesmo: o servico espera ate 60',
-      'segundos por chamada, tenta no maximo 3 vezes com espera crescente, e retenta',
-      'apenas falha transitoria. Erro permanente vai direto para `FAILED`, porque',
-      'repetir o que falhou por motivo deterministico so multiplica o custo.',
-      '',
-      'Qual modelo e qual versao de prompt produziram cada resultado aparecem no',
-      '`GET`, no bloco `processamento`, junto com quantas chamadas o documento ja',
-      'custou. Isso existe porque o modelo do fornecedor vai trocar de versao, e sem',
-      'esse registro ninguem consegue provar o que mudou quando a extracao piorar.',
-      '',
-      '### Reenvio',
-      '',
-      '`201` no primeiro envio de um conteudo, `200` quando aquele hash ja existe. O',
-      'reenvio e o comportamento esperado e nao um erro: o mesmo documento chega mais',
-      'de uma vez porque o cliente reenvia por inseguranca e o atendimento reenvia por',
-      'precaucao. Nesse caso o documento **nao** e reprocessado, entao nenhuma chamada',
-      'nova e paga, mas a submissao e registrada e aparece em `submissoes` no `GET`,',
-      'com o nome e o canal de cada envio. O corpo traz `jaExistia` para o cliente',
-      'distinguir os dois casos sem depender do status code.',
-      '',
-      '### O que e recusado, e antes de custar qualquer coisa',
-      '',
-      'O tipo do arquivo sai da inspecao dos primeiros bytes, e nunca do nome, da',
-      'extensao ou do content-type informado. Um `.pdf` com bytes de JPEG e um JPEG, e',
-      'um executavel chamado `rg.jpeg` recebe `415`. Aceitos: JPEG, PNG, HEIC, HEIF e',
-      'PDF. HEIC esta na lista porque a foto original de iPhone chega assim.',
+      'Tempo de processamento, retentativa e custo estao em `docs/especificacao.md`.',
     ].join('\n'),
   })
   @ApiConsumes('multipart/form-data')
@@ -111,7 +83,7 @@ export class DocumentosController {
     example: 'crm-atendimento',
     schema: { type: 'string', default: 'crm-atendimento' },
     description:
-      'Qual sistema interno enviou, e por qual canal o documento chegou. Obrigatorio porque a unicidade da chave de idempotencia e do par sistema mais chave: dois sistemas internos geram identificador sem coordenacao entre si, e uma colisao acidental faria um deles ter o envio descartado em silencio. Exemplos: crm-atendimento, portal-balcao.',
+      'Qual sistema interno enviou, e por qual canal o documento chegou. Obrigatorio porque a unicidade da chave de idempotencia e do par sistema mais chave. Exemplos: crm-atendimento, portal-balcao.',
   })
   @ApiHeader({
     name: 'Idempotency-Key',
@@ -119,11 +91,10 @@ export class DocumentosController {
     example: 'req-2026-09-01-0001',
     schema: { type: 'string', default: '' },
     description:
-      'Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes. E coisa diferente do reenvio: o reenvio do mesmo arquivo cria submissao nova de proposito, e a requisicao repetida nao. Deixe vazio para nao usar.',
+      'Opcional. Requisicao repetida por timeout de rede nao cria submissao nova. E diferente do reenvio do mesmo arquivo, que cria. Deixe vazio para nao usar.',
   })
   @ApiBody({
-    description:
-      'Multipart com um unico campo. Ha arquivos ficticios prontos em `fixtures/` no repositorio, incluindo casos que devem ser recusados.',
+    description: 'Ha arquivos ficticios prontos em `fixtures/`, incluindo casos recusados.',
     schema: {
       type: 'object',
       required: ['arquivo'],
@@ -131,20 +102,18 @@ export class DocumentosController {
         arquivo: {
           type: 'string',
           format: 'binary',
-          description:
-            'O documento, em JPEG, PNG, HEIC, HEIF ou PDF, com no maximo 25 MB. O nome do arquivo e guardado so como registro e nunca vira caminho no disco.',
+          description: 'JPEG, PNG, HEIC, HEIF ou PDF, ate 25 MB.',
         },
       },
     },
   })
   @ApiCreatedResponse({
-    description:
-      'Primeiro envio deste conteudo. O documento foi criado em RECEIVED e o trabalho foi enfileirado. `jaExistia` vem `false`.',
+    description: 'Primeiro envio deste conteudo. `jaExistia` vem `false`.',
     type: RespostaDeRecebimento,
   })
   @ApiOkResponse({
     description:
-      'Reenvio: este conteudo ja existia. A submissao foi registrada e aparece em `submissoes` no GET, mas o documento nao foi reprocessado e nenhuma chamada nova ao modelo foi paga. `jaExistia` vem `true` e `estado` traz a situacao atual, que pode ja ser PROCESSED.',
+      'Reenvio: o conteudo ja existia. Submissao registrada, documento nao reprocessado. `jaExistia` vem `true` e `estado` traz a situacao atual.',
     type: RespostaDeRecebimento,
   })
   @ApiResponse({ status: 400, description: 'Campo arquivo ausente ou header obrigatorio faltando', type: RespostaDeErro })
@@ -190,7 +159,7 @@ export class DocumentosController {
   @ApiOperation({
     summary: 'Consulta um documento',
     description:
-      'O cliente consulta ate o estado sair de RECEIVED ou PROCESSING. Campos so vem preenchidos em PROCESSED e REVIEW_REQUIRED.',
+      'Consulte ate o estado sair de `RECEIVED` ou `PROCESSING`. Campos so vem preenchidos em `PROCESSED` e `REVIEW_REQUIRED`.',
   })
   @ApiOkResponse({ type: RespostaDeConsulta })
   @ApiResponse({ status: 404, description: 'Documento inexistente', type: RespostaDeErro })
