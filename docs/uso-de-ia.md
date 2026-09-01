@@ -75,6 +75,21 @@ Anoto porque é o erro mais perigoso do conjunto. Não é um erro de código, qu
 quebra e aparece. É uma afirmação plausível sobre um fato verificável, escrita
 com a mesma confiança do resto, e num documento que ninguém checa ela passa.
 
+**O agente parou de registrar os meus prompts e eu tive que cobrar.** O
+`CLAUDE.md` tem uma regra explícita mandando ele me lembrar de registrar o
+prompt antes de seguir para a próxima tarefa. Nos prompts 9 e 10 ele foi direto
+para o trabalho, e os dois ficaram fora de `prompts/` até eu perceber e cobrar.
+
+Percebi porque o registro é item obrigatório da entrega e eu estava conferindo
+o que já existia. O conserto foi registrar os dois com o texto original, mais
+este parágrafo.
+
+O que isso ensina sobre conduzir agente é o que me interessa aqui: a regra
+estava escrita, estava no arquivo que ele lê, e mesmo assim ela decaiu conforme
+a conversa ficou longa e as tarefas técnicas foram ficando mais interessantes
+que a disciplina de registro. Instrução escrita não é garantia de instrução
+seguida, e a parte que não pode ser delegada é justamente a conferência.
+
 **O agente escreveu instruções sem as minhas convenções, porque eu não as tinha
 dado.** O primeiro `CLAUDE.md` saiu sem arquitetura, sem convenção de banco e
 sem padrão de comentário, porque nesse momento eu ainda não tinha passado o
