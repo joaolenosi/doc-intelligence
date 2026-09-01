@@ -25,3 +25,9 @@ Agora siga pelos adaptadores de persistência e va dando commit a medida que for
 no commit anterior, com os onze testes de integração contra o Postgres. O agente
 apontou isso em vez de refazer, e seguiu para o que faltava: o dublê, os dois
 adaptadores de fila e a camada HTTP.
+
+## Prompt 16
+
+```
+Pode seguir para a etapa http e os endpoints com o compose completo
+```

@@ -26,10 +26,16 @@ export class PublicadorBullMq implements PublicadorDeProcessamento {
       FILA_DE_PROCESSAMENTO,
       { documentoId },
       {
-        // O id do job e o do documento, entao republicar o mesmo documento nao
-        // cria trabalho duplicado. Importa para a reconciliacao futura, que vai
-        // republicar sem saber se o job ainda existe.
-        jobId: String(documentoId),
+        // O id do job deriva do id do documento, entao republicar o mesmo
+        // documento nao cria trabalho duplicado. Importa para a reconciliacao
+        // futura, que vai republicar sem saber se o job ainda existe.
+        //
+        // O prefixo nao e enfeite: o BullMQ recusa id customizado que pareca
+        // inteiro, porque colidiria com a sequencia interna dele. Sem o
+        // prefixo, todo upload responde 500 com "Custom Ids cannot be
+        // integers", e o teste de integracao nao pegava isso porque rodava com
+        // o adaptador de Postgres.
+        jobId: `doc-${documentoId}`,
         attempts: this.maxTentativas,
         backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: { count: 1000 },
