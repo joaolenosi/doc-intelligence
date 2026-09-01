@@ -15,6 +15,17 @@ import { tipoParaDominio } from '../mapeadores/tipo-documento.mapeador';
 /** Codigo do Postgres para violacao de restricao unica. */
 const VIOLACAO_DE_UNICIDADE = '23505';
 
+/**
+ * O indice do hash, e so ele.
+ *
+ * A tabela tem duas restricoes unicas, e traduzir as duas para ConflitoDeHash
+ * faria uma colisao de chave de armazenamento aparecer como documento
+ * duplicado. O caso de uso trataria como reenvio, iria buscar o documento pelo
+ * hash, nao acharia e relancaria um erro que nao explica nada. Um teste de
+ * integracao com dois documentos compartilhando a chave foi o que revelou isso.
+ */
+const INDICE_DO_HASH = 'uq_doc_hash_conteudo';
+
 export class RepositorioDeDocumentoTypeOrm implements RepositorioDeDocumento {
   constructor(
     private readonly dataSource: DataSource,
@@ -35,7 +46,10 @@ export class RepositorioDeDocumentoTypeOrm implements RepositorioDeDocumento {
       // consulta previa e otimizacao, e duas requisicoes simultaneas passam as
       // duas por ela. Traduzir aqui evita que o caso de uso conheca codigo de
       // erro do Postgres.
-      if (erro instanceof QueryFailedError && (erro.driverError as { code?: string }).code === VIOLACAO_DE_UNICIDADE) {
+      const driver = erro instanceof QueryFailedError
+        ? (erro.driverError as { code?: string; constraint?: string })
+        : undefined;
+      if (driver?.code === VIOLACAO_DE_UNICIDADE && driver.constraint === INDICE_DO_HASH) {
         throw new ConflitoDeHash(documento.hash.valor);
       }
       throw erro;

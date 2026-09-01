@@ -12,6 +12,8 @@
     "test:integracao": "jest --config jest.integracao.config.js"
   },
   "dependencies": {
+    "bullmq": "^5.34.2",
+    "ioredis": "^5.4.2",
     "pg": "8.13.1",
     "reflect-metadata": "0.2.2",
     "typeorm": "0.3.20"
