@@ -43,6 +43,31 @@ volta. A alternativa mais robusta seria o padrão outbox, gravando a intenção 
 publicar na mesma transação do documento e deixando um processo separado
 publicar, o que fecha a janela sem depender de varredura.
 
+### Arquivo órfão quando duas requisições do mesmo conteúdo correm juntas
+
+O recebimento consulta o hash, não acha, grava o arquivo e só então grava o
+documento. Duas requisições simultâneas com o mesmo conteúdo passam as duas pela
+consulta e gravam as duas o arquivo. O índice único recusa o segundo documento,
+o reenvio é tratado corretamente e só uma chamada ao modelo é paga, mas o
+arquivo que o perdedor gravou fica sem nenhum documento apontando para ele.
+
+Ficou fora porque sistema de arquivos não participa de transação, então não há
+como gravar arquivo e documento atomicamente. Apagar no `catch` exigiria uma
+operação de remoção na porta de armazenamento que nada mais usaria, e remoção é
+a operação que eu menos quero ter disponível num serviço que guarda documento de
+cliente.
+
+**O que quebra.** Nada de correção. É disco consumido por um caso raro: exige
+dois envios do mesmo arquivo dentro da mesma janela de milissegundos, que o fato
+(c) torna possível mas não frequente. O teste da corrida em
+`testes/aplicacao/receber-documento.spec.ts` afirma esse comportamento em vez de
+escondê-lo.
+
+**Como entraria.** Uma varredura periódica comparando as chaves de armazenamento
+existentes com as referenciadas em `doc_chave_armazenamento`, apagando o que não
+tem dono e é mais velho que alguma folga. É o mesmo desenho da coleta que uma
+política de retenção vai precisar de qualquer jeito.
+
 ### Cobrança duplicada quando o timeout não cancela o processamento do fornecedor
 
 Nosso timeout é de 60 segundos. Se o fornecedor responder aos 65, nós já

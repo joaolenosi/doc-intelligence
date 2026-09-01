@@ -38,6 +38,19 @@ export class ArquivoRecusado extends Error {
   }
 }
 
+/**
+ * Duas requisicoes simultaneas com o mesmo conteudo passaram as duas pela
+ * consulta por hash e as duas tentaram gravar. O indice unico do banco recusou
+ * a segunda, que e exatamente o papel dele: a consulta e otimizacao, a garantia
+ * e do banco. Quem recebe este erro le de novo e trata como reenvio.
+ */
+export class ConflitoDeHash extends Error {
+  constructor(readonly hash: string) {
+    super('Documento com este conteudo ja existe');
+    this.name = 'ConflitoDeHash';
+  }
+}
+
 export class DocumentoNaoEncontrado extends Error {
   constructor(readonly documentoId: number) {
     super(`Documento ${documentoId} nao encontrado`);
