@@ -15,10 +15,14 @@ do `npm test`.
 
 **Sobre o Playwright.** Não há projeto de navegador aqui, e isso é deliberado: a
 Trilha A não tem interface, então a automação de navegador não tem alvo. O que
-se aproveita é o executor de testes de API. O servidor MCP do Playwright está
-configurado em `.mcp.json` e versionado, porque o enunciado pede os servidores
-MCP configurados dentro do repositório, mas as capacidades de navegador dele não
-foram exercitadas neste projeto, pelo mesmo motivo.
+se aproveita é o executor de testes de API, que é uma biblioteca comum.
+
+O servidor MCP do Playwright está declarado em `.mcp.json` e versionado, porque
+o enunciado pede o registro dos servidores MCP, mas ele **nunca esteve ativo**:
+o `.claude/settings.local.json` registra que ele foi desabilitado neste
+workspace. Nada aqui passou por ele. O detalhe está em
+[`docs/uso-de-ia.md`](uso-de-ia.md), junto com a correção da afirmação anterior,
+que dizia que eu tinha configurado um MCP.
 
 ## Como rodar
 
@@ -35,7 +39,8 @@ quando falha.
 
 | Teste | O que ele responde |
 |---|---|
-| `healthz` sem chave | a única rota fora do guard responde, e consulta o banco |
+| raiz lista os endpoints | descoberta sem chave, e todo link absoluto responde `200` |
+| `healthz` sem chave | responde e consulta o banco |
 | 401 sem chave e com chave errada | a fronteira existe, e a resposta não distingue os dois casos |
 | 201 com `Location` | o upload responde na hora, sem esperar o modelo |
 | 400 sem `X-Sistema-Origem` | o header é obrigatório porque a idempotência é por par |
@@ -47,6 +52,7 @@ quando falha.
 | reenvio devolve 200 com 2 submissões e 1 tentativa | o fato (c) sem pagar duas vezes |
 | idempotência por par sistema e chave | mesma chave em sistemas diferentes conta como dois envios |
 | sem worker o documento não anda | o ADR-003 é implementação, e não afirmação |
+| contrato servido bate com o versionado | o arquivo em `docs/` não é foto velha |
 
 O teste de topologia merece explicação. O teste que espera o documento ficar
 pronto passa em cerca de 100 milissegundos, e velocidade assim levanta a dúvida
@@ -57,13 +63,18 @@ andar quando o worker sobe, com o trabalho preservado.
 
 ## Resultados registrados
 
-Executado em 01/09/2026, contra o compose recém-construído.
+Executado em 01/09/2026, contra o compose recém-construído, com a saída inteira à
+vista. Os números anteriores registrados aqui diziam 14 testes, e envelheceram
+quando a suíte cresceu: um documento que se apresenta como registro de execução e
+guarda número velho está mentindo com mais convicção do que um que não registra
+nada.
 
 ### Com o adaptador padrão, BullMQ sobre Redis
 
 ```
-Running 14 tests using 1 worker
-  14 passed (9.9s)
+  ✓  19 topologia.e2e.spec.ts:37:5 › sem worker o documento nao anda, e com worker ele anda (6.0s)
+
+  19 passed (8.9s)
 ```
 
 ### Com `FILA_ADAPTADOR=postgres` e o Redis parado
@@ -71,12 +82,13 @@ Running 14 tests using 1 worker
 ```
 SERVICE    STATUS
 api        Up 14 seconds (healthy)
-postgres   Up 26 minutes (healthy)
+postgres   Up 8 hours (healthy)
 worker     Up 8 seconds
                        (redis ausente)
 
-Running 14 tests using 1 worker
-  14 passed (19.2s)
+  ✓  19 topologia.e2e.spec.ts:37:5 › sem worker o documento nao anda, e com worker ele anda (12.1s)
+
+  19 passed (17.3s)
 ```
 
 A mesma suíte, sem alterar uma linha de teste, passa contra os dois adaptadores.

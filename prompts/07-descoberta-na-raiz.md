@@ -23,3 +23,21 @@ e por quê.
 
 Dois testes quebraram com a mudança, o de contrato e o de fronteira de
 autenticação, e os dois estavam certos em quebrar.
+
+## Prompt 23
+
+```
+**Nenhuma skill, nenhum subagente, nenhum comando e nenhum hook**, e não existe
+diretório `.claude/` neste repositório. Prefiro dizer isso com todas as letras a
+deixar a ausência parecer esquecimento. essa informacao esta incorreta, porque o arquivo existe: '/Users/joaoleno/Projetos/NEST JS/doc-intelligence/doc-intelligence/.claude'
+```
+
+**Contexto, escrito depois.** Eu estava certo, e a verificação achou algo pior do
+que eu tinha apontado. O diretório existe com um arquivo,
+`.claude/settings.local.json`, e o conteúdo dele é
+`{"disabledMcpjsonServers": ["playwright"]}`.
+
+Isso quer dizer que o servidor MCP do Playwright, que o agente declarou no
+`.mcp.json` e descreveu como "configurado", ficou **desabilitado** neste
+workspace e nunca esteve ativo. A afirmação anterior era exagero, e foi
+corrigida em `docs/uso-de-ia.md` e em `docs/testes-e2e.md`.

@@ -62,6 +62,7 @@ test.describe('documentacao do contrato', () => {
 
     const contrato = await semChave.json();
     expect(Object.keys(contrato.paths).sort()).toEqual([
+      '/',
       '/healthz',
       '/v1/documentos',
       '/v1/documentos/{id}',

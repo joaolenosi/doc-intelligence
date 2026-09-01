@@ -25,22 +25,34 @@ preservados.
 ## O que eu configurei, e o que eu não configurei
 
 O enunciado pede as skills, subagentes, comandos, hooks e servidores MCP que eu
-tiver configurado, tudo versionado.
+tiver configurado, tudo versionado. A resposta honesta exige uma distinção entre
+declarar e usar.
 
-**Um servidor MCP:** o do Playwright, em `.mcp.json`, na raiz. Ele entrou
-quando eu quis testes que batessem na API pela rede, contra o ambiente do
-`docker compose`, em vez de subir o Nest dentro do Jest.
+**Um servidor MCP declarado, e não usado.** O `.mcp.json`, na raiz e versionado,
+declara o servidor MCP do Playwright. Ele **nunca esteve ativo**: o
+`.claude/settings.local.json`, que é estado local da minha máquina, registra
+`{"disabledMcpjsonServers": ["playwright"]}`, ou seja, ele foi desabilitado
+neste workspace.
 
-Sobre ele eu preciso ser honesto quanto ao alcance: a Trilha A não tem
-interface, então a automação de navegador, que é o que o MCP do Playwright
-oferece de específico, **não foi exercitada**. O que este projeto usa é o
-executor de testes de API do Playwright, e isso não depende do MCP. Deixei o
-servidor configurado e versionado porque o enunciado pede o registro do que foi
-configurado, e não porque ele carregou o trabalho.
+Eu tinha escrito antes que "configurei um servidor MCP", e isso era exagero.
+Declarei um, ele ficou desligado, e o trabalho de teste que eu atribuí a ele foi
+feito pelo executor de testes de API do Playwright, que é uma biblioteca comum e
+não depende de MCP nenhum. A Trilha A não tem interface, então a automação de
+navegador, que é o que o MCP do Playwright oferece de específico, não teria alvo
+mesmo se estivesse ligada.
 
-**Nenhuma skill, nenhum subagente, nenhum comando e nenhum hook**, e não existe
-diretório `.claude/` neste repositório. Prefiro dizer isso com todas as letras a
-deixar a ausência parecer esquecimento.
+Mantive o `.mcp.json` versionado porque o enunciado pede o registro do que foi
+configurado, e uma declaração que existe e está desligada é um fato do projeto.
+Tirá-lo agora deixaria o registro mais bonito e menos verdadeiro.
+
+**O diretório `.claude/` existe, com um arquivo só.** Ele guarda
+`settings.local.json`, que é escolha de quem está rodando e não configuração do
+projeto: por isso ele fica fora do controle de versão, e a regra está no
+`.gitignore` do próprio repositório em vez de depender do gitignore global de
+quem clonar.
+
+**Nenhuma skill, nenhum subagente, nenhum comando e nenhum hook.** Prefiro dizer
+isso com todas as letras a deixar a ausência parecer esquecimento.
 
 O motivo é que o trabalho desta entrega é sequencial e cabe num contexto só:
 ler o enunciado, decidir, especificar, implementar a fatia. Subagente serve para
@@ -89,6 +101,23 @@ Anoto porque é o erro mais perigoso do conjunto. Não é um erro de código, qu
 quebra e aparece. É uma afirmação plausível sobre um fato verificável, escrita
 com a mesma confiança do resto, e num documento que ninguém checa ela passa.
 
+**O agente afirmou ter configurado um MCP que nunca esteve ligado.** Ele
+declarou o servidor do Playwright no `.mcp.json` e escreveu, aqui mesmo, que
+tinha "configurado um servidor MCP". O `.claude/settings.local.json` mostra que
+o servidor estava desabilitado no workspace o tempo todo.
+
+Percebi porque eu apontei que o diretório `.claude/` existia, contrariando outra
+frase deste documento, e a verificação do conteúdo achou a coisa maior. As duas
+frases foram corrigidas.
+
+O que me interessa registrar é a diferença entre as duas falhas. A frase sobre o
+diretório envelheceu: ela era verdadeira quando foi escrita, e o próprio agente
+criou o arquivo depois. Já a frase sobre o MCP era exagero desde o começo, e
+exagero é mais difícil de pegar do que erro, porque ele descreve algo que quase
+aconteceu. É o mesmo tipo de afirmação plausível e verificável do caso do commit
+inicial, e reforça a regra que eu tirei de lá: afirmação sobre o estado do
+repositório precisa ser conferida no repositório, e não lembrada.
+
 **O agente parou de registrar os meus prompts e eu tive que cobrar.** O
 `CLAUDE.md` tem uma regra explícita mandando ele me lembrar de registrar o
 prompt antes de seguir para a próxima tarefa. Nos prompts 9 e 10 ele foi direto
@@ -122,6 +151,21 @@ Percebi na linha seguinte, quando a saída completa apareceu. O conserto foi
 imediato, mas o commit ruim já estava no remoto, e eu preferi deixá-lo lá com o
 conserto num commit próprio a reescrever o histórico: o enunciado quer ler como
 o trabalho aconteceu, e um histórico limpo demais esconde justamente isso.
+
+**E aconteceu uma terceira vez, com o filtro escondendo a falha.** No commit da
+rota de descoberta na raiz, o agente rodou os testes ponta a ponta com
+`npm run test:e2e | grep -E "passed|failed" | tail -1`. O Playwright imprime `1
+failed` antes de `18 passed`, então o `tail -1` mostrou só a linha verde. O
+commit foi empurrado com um teste vermelho, e o teste vermelho era exatamente o
+que a mudança da raiz tinha invalidado.
+
+Percebi na sessão seguinte, ao reexecutar a suíte sem filtro para atualizar os
+números registrados em `docs/testes-e2e.md`.
+
+Este é o pior dos três, e não pelo resultado, que foi o mesmo. É que nos dois
+primeiros a saída estava disponível e não foi lida; aqui o comando foi escrito de
+um jeito que tornava a falha invisível. A regra virou concreta: conferir teste é
+olhar o resumo inteiro, e `tail` em saída de suíte é um jeito de não ver.
 
 **E aconteceu de novo, uma etapa depois.** No commit dos testes ponta a ponta,
 o agente rodou a suíte de ponta a ponta, viu 14 verdes e empurrou, sem rodar o

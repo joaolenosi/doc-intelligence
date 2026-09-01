@@ -21,3 +21,8 @@ storage/
 test-results/
 playwright-report/
 testes/e2e/resultado.json
+
+# Estado local do Claude Code, por maquina. Fica de fora de proposito: ele
+# guarda escolhas de quem esta rodando, e nao configuracao do projeto. O que e
+# do projeto esta em .mcp.json e em CLAUDE.md, os dois versionados.
+.claude/settings.local.json
