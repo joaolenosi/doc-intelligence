@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 import { ProcessarDocumento } from '../../../aplicacao/casos-de-uso/processar-documento.caso-de-uso';
 import { registrarFalha } from '../../comum/descrever-erro';
-import { FILA_DE_PROCESSAMENTO } from '../nome-da-fila';
+import { FILA_DE_PROCESSAMENTO, esperaAntesDeRetentar } from '../nome-da-fila';
 
 /**
  * Consome a fila do Redis e chama o caso de uso.
@@ -14,6 +14,10 @@ import { FILA_DE_PROCESSAMENTO } from '../nome-da-fila';
  * A concorrencia vem de configuracao e o padrao e 5, que sai da conta do pico:
  * 800 documentos em 2h dao 0,11 por segundo, e a 40s de pior caso isso exige
  * 4,4 execucoes simultaneas.
+ *
+ * A espera entre tentativas tambem e registrada aqui, e nao em quem publica,
+ * porque e onde o BullMQ a aceita. E a mesma funcao que o adaptador de Postgres
+ * usa, para os dois caminhos falharem do mesmo jeito.
  */
 export function criarConsumidorBullMq(entrada: {
   conexao: ConnectionOptions;
@@ -25,7 +29,17 @@ export function criarConsumidorBullMq(entrada: {
     async (job) => {
       await entrada.processar.executar(Number(job.data.documentoId));
     },
-    { connection: entrada.conexao, concurrency: entrada.concorrencia },
+    {
+      connection: entrada.conexao,
+      concurrency: entrada.concorrencia,
+      settings: {
+        // O publicador pede `backoff: { type: 'custom' }` e a funcao mora aqui,
+        // porque e assim que o BullMQ divide as duas coisas. `attemptsMade` ja
+        // conta a tentativa que acabou de falhar, que e o mesmo significado do
+        // parametro de `esperaAntesDeRetentar`, entao um vai direto no outro.
+        backoffStrategy: (attemptsMade: number) => esperaAntesDeRetentar(attemptsMade),
+      },
+    },
   );
 
   worker.on('failed', (job, erro) => {

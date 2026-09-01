@@ -37,7 +37,13 @@ export class PublicadorBullMq implements PublicadorDeProcessamento {
         // o adaptador de Postgres.
         jobId: `doc-${documentoId}`,
         attempts: this.maxTentativas,
-        backoff: { type: 'exponential', delay: 2000 },
+        // A espera entre tentativas e a mesma do adaptador de Postgres, e vem
+        // de `esperaAntesDeRetentar`. Aqui so cabe o nome da estrategia: o
+        // BullMQ pede a funcao nas `settings` do worker, entao ela e registrada
+        // em `criarConsumidorBullMq`. Publicador e consumidor precisam
+        // concordar neste nome, pelo mesmo motivo que precisam concordar no
+        // nome da fila.
+        backoff: { type: 'custom' },
         removeOnComplete: { count: 1000 },
         removeOnFail: false,
       },

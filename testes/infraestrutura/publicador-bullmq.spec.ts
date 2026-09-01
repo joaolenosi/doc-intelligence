@@ -13,10 +13,16 @@ import { PublicadorBullMq } from '../../src/infraestrutura/fila/bullmq/publicado
  * voltar a usar o id do documento direto, este teste falha no `npm test`, sem
  * subir nada.
  */
+interface OpcoesPublicadas {
+  jobId?: string;
+  attempts?: number;
+  backoff?: { type: string; delay?: number };
+}
+
 const filaFalsa = () => {
-  const chamadas: { nome: string; dados: unknown; opcoes: { jobId?: string; attempts?: number } }[] = [];
+  const chamadas: { nome: string; dados: unknown; opcoes: OpcoesPublicadas }[] = [];
   const fila = {
-    add: async (nome: string, dados: unknown, opcoes: { jobId?: string; attempts?: number }) => {
+    add: async (nome: string, dados: unknown, opcoes: OpcoesPublicadas) => {
       chamadas.push({ nome, dados, opcoes });
       return { id: opcoes.jobId };
     },
@@ -32,6 +38,30 @@ describe('PublicadorBullMq', () => {
     expect(chamadas).toHaveLength(1);
     expect(chamadas[0].dados).toEqual({ documentoId: 42 });
     expect(chamadas[0].opcoes.attempts).toBe(3);
+  });
+
+  /**
+   * O publicador so nomeia a estrategia de espera. A funcao mora nas `settings`
+   * do worker, em `criarConsumidorBullMq`, porque e onde o BullMQ a aceita.
+   *
+   * Os dois lados precisam concordar neste nome, pelo mesmo motivo que precisam
+   * concordar no nome da fila, e a diferenca e que a fila esta numa constante
+   * compartilhada e este nome nao pode estar: quem publica passa uma string e
+   * quem consome passa uma funcao. Como nao da para compartilhar o valor, sobra
+   * afirma-lo aqui.
+   *
+   * Antes disto o publicador pedia `exponential` com delay de 2000, e o jitter
+   * que o adaptador de Postgres tinha nao valia para o caminho padrao.
+   */
+  it('pede a estrategia de espera customizada, e nao a nativa', async () => {
+    const { fila, chamadas } = filaFalsa();
+    await new PublicadorBullMq(fila, 3).publicar(42);
+
+    expect(chamadas[0].opcoes.backoff).toEqual({ type: 'custom' });
+    // A ausencia de `delay` e parte da assercao: com a estrategia customizada
+    // quem decide a espera e a funcao registrada no worker, e um `delay` aqui
+    // seria um numero sem efeito parecendo configuracao.
+    expect(chamadas[0].opcoes.backoff?.delay).toBeUndefined();
   });
 
   /**
