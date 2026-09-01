@@ -238,8 +238,15 @@ em que ele não deveria decidir sozinho.
 
 O formato de cada tipo vem de `tpd_template_nome`, no catálogo, e não de
 constante no código. Para o `RG` o template é
-`{TIPO}_{TITULAR}_{IDENTIFICADOR}_{AAAA-MM-DD}.{extensao}`, que produz
+`{tipo}_{nome}_{numero}_{data}.{extensao}`, que produz
 `RG_MARIA_DA_SILVA_123456789_2026-08-31.jpg`.
+
+Os marcadores entre chaves são de dois tipos. Três são embutidos: `{tipo}` é o
+código do tipo, `{data}` é a data de referência do documento quando aquele tipo
+tem uma e a de processamento quando não tem, e `{extensao}` vem do tipo de mídia
+detectado. Qualquer outro marcador é o **nome de um campo extraído**, resolvido
+pelo valor daquele campo. Foi isso que permitiu o template virar dado: mudar o
+padrão de nomes de um tipo é `UPDATE` numa linha, e não deploy.
 
 O titular vira ASCII maiúsculo sem acento, com `_` no lugar de espaço e corte em
 40 caracteres. Segmento cujo campo não veio é omitido inteiro, sem deixar
