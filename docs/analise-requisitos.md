@@ -213,6 +213,7 @@ O enunciado diz que perguntar conta a favor, então perguntei cedo e não no
    o número que vale é o dele.
 6. O fornecedor aceita alguma chave de idempotência na chamada? Isso decide se
    um timeout do nosso lado nos faz pagar duas vezes pelo mesmo documento.
+
 **Uma sétima ficou de fora.** Eu tinha listado aqui a pergunta sobre HEIC: a
 foto original de iPhone chega nesse formato e não em JPEG, e eu queria saber se
 o fornecedor aceita ou se o serviço precisaria converter antes de enviar. Ela
