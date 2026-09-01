@@ -16,10 +16,14 @@ import { deflateSync } from 'node:zlib';
  *
  * Sobre o que estes arquivos sao e o que eles nao sao: eles sao validos nos
  * bytes, entao a inspecao os classifica como um cliente classificaria. Eles nao
- * sao fotografias de documentos. O duble deriva a resposta do hash do conteudo e
- * nao olha pixel, entao imagem de verdade nao acrescentaria nada aqui. Um
- * fornecedor real precisaria de digitalizacoes plausiveis, e isso esta
- * registrado como limitacao no README do diretorio.
+ * sao fotografias de documentos, e um fornecedor real precisaria de
+ * digitalizacoes plausiveis. Isso esta registrado como limitacao no README do
+ * diretorio.
+ *
+ * Os positivos embutem `TIPO-FIXTURE: <CODIGO>` no texto. O duble le esse
+ * marcador para classificar, porque sem ele o tipo saia do hash e
+ * `rg-frente.jpeg` virava comprovante de residencia: nao quebrava nada, mas
+ * fazia a demonstracao mentir na primeira impressao.
  */
 
 const DESTINO = join(__dirname, '..', 'fixtures');
@@ -188,6 +192,7 @@ export function montarFixtures(): Fixture[] {
       conteudo: jpegComTexto(
         [
           'DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE',
+          'TIPO-FIXTURE: RG',
           'REGISTRO GERAL',
           'NOME: MARIA FICTICIA DE SOUZA',
           'FILIACAO: JOAO INVENTADO DA COSTA; ANA EXEMPLO PEREIRA',
@@ -204,7 +209,7 @@ export function montarFixtures(): Fixture[] {
       conteudo: png(
         320,
         200,
-        'Conta de consumo ficticia. TITULAR: CARLOS TESTE DE ALMEIDA. ENDERECO: RUA FICTICIA 123, BAIRRO INVENTADO. REFERENCIA: 2026-07.',
+        'TIPO-FIXTURE: COMPROVANTE_RESIDENCIA. Conta de consumo ficticia. TITULAR: CARLOS TESTE DE ALMEIDA. ENDERECO: RUA FICTICIA 123, BAIRRO INVENTADO. REFERENCIA: 2026-07.',
       ),
       tipoMidiaEsperado: 'image/png',
       descricao: 'Captura de tela de conta de consumo, que chega bastante por e-mail.',
@@ -213,6 +218,7 @@ export function montarFixtures(): Fixture[] {
       arquivo: 'procuracao-registro-casa.pdf',
       conteudo: pdf([
         'DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE JURIDICA',
+        'TIPO-FIXTURE: DESCONHECIDO',
         '',
         'PROCURACAO PARA REGISTRO DE IMOVEL',
         '',
@@ -232,6 +238,7 @@ export function montarFixtures(): Fixture[] {
       arquivo: 'contracheque-2026-07.pdf',
       conteudo: pdf([
         'DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE',
+        'TIPO-FIXTURE: CONTRACHEQUE',
         '',
         'DEMONSTRATIVO DE PAGAMENTO',
         '',
@@ -247,7 +254,7 @@ export function montarFixtures(): Fixture[] {
     {
       arquivo: 'identidade-foto-iphone.heic',
       conteudo: heic(
-        'Foto ficticia de identidade, no formato que a camera do iPhone produz por padrao.',
+        'TIPO-FIXTURE: RG. Foto ficticia de identidade, no formato que a camera do iPhone produz por padrao.',
       ),
       tipoMidiaEsperado: 'image/heic',
       descricao:
@@ -258,6 +265,7 @@ export function montarFixtures(): Fixture[] {
       conteudo: jpegComTexto(
         [
           'DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE',
+          'TIPO-FIXTURE: RG',
           'REGISTRO GERAL',
           'NOME: MARIA FICTICIA DE SOUZA',
           'FILIACAO: JOAO INVENTADO DA COSTA; ANA EXEMPLO PEREIRA',

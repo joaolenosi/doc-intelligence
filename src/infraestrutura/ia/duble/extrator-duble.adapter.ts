@@ -42,6 +42,28 @@ const ORGAOS = ['SSP/RN', 'SSP/SP', 'DETRAN/RJ', 'SSP/CE'];
 
 const TIPOS = ['RG', 'CPF', 'COMPROVANTE_RESIDENCIA', 'CONTRACHEQUE'] as const;
 
+/**
+ * Marcador que as fixtures embutem para declarar que tipo elas representam.
+ *
+ * Sem ele, o tipo saia so do hash, e `rg-frente.jpeg` era classificado como
+ * comprovante de residencia. Nao quebrava nada, mas fazia a demonstracao mentir
+ * na primeira impressao, e quem esta avaliando comeca por ela.
+ *
+ * Ler um marcador no conteudo continua sendo determinismo e nao trapaca: o
+ * duble le os bytes que recebeu, que e o que um modelo multimodal faria, so que
+ * de um jeito trivial. Quando o marcador nao existe, e o caso de qualquer
+ * arquivo que nao venha de `fixtures/`, o tipo volta a sair do hash.
+ */
+const MARCADOR_DE_TIPO = /TIPO-FIXTURE:\s*([A-Z_]+)/;
+
+function tipoDeclarado(conteudo: Uint8Array): (typeof TIPOS)[number] | undefined {
+  // So o comeco do arquivo: as fixtures colocam o marcador no cabecalho, e ler
+  // o arquivo inteiro seria custo por nada num PDF de varias paginas.
+  const inicio = Buffer.from(conteudo.subarray(0, 4096)).toString('latin1');
+  const achado = inicio.match(MARCADOR_DE_TIPO)?.[1];
+  return TIPOS.find((tipo) => tipo === achado);
+}
+
 const CAMPOS_POR_TIPO: Readonly<Record<string, readonly string[]>> = {
   RG: ['nome', 'filiacao', 'dataNascimento', 'numero', 'orgaoEmissor'],
   CPF: ['nome', 'numero'],
@@ -66,6 +88,7 @@ export class ExtratorDuble implements ExtratorDeDocumento {
 
   async extrair(entrada: { conteudo: Uint8Array; tipoMidia: string }): Promise<ResultadoDaExtracao> {
     const semente = this.semente(entrada.conteudo);
+    const declarado = tipoDeclarado(entrada.conteudo);
 
     switch (this.opcoes.modo) {
       case 'TIMEOUT':
@@ -81,23 +104,23 @@ export class ExtratorDuble implements ExtratorDeDocumento {
             'FORNECEDOR_INDISPONIVEL',
           );
         }
-        return this.resultado(semente, 0.95);
+        return this.resultado(semente, 0.95, undefined, declarado);
 
       case 'LENTO': {
         // O fato (a) diz entre 5 e 40 segundos. A espera fica injetavel para o
         // teste nao precisar viver isso em tempo real.
         const espera = 5000 + (semente % 35_000);
         await (this.opcoes.dormir ?? padraoDormir)(espera);
-        return this.resultado(semente, 0.95);
+        return this.resultado(semente, 0.95, undefined, declarado);
       }
 
       case 'BAIXA_CONFIANCA':
         // Um campo obrigatorio abaixo do limiar, com o resto alto. E o caso do
         // ADR-007: media alta escondendo o campo que importa.
-        return this.resultado(semente, 0.95, 0.42);
+        return this.resultado(semente, 0.95, 0.42, declarado);
 
       case 'SUCESSO':
-        return this.resultado(semente, 0.95);
+        return this.resultado(semente, 0.95, undefined, declarado);
 
       default:
         throw new FalhaPermanenteDoExtrator(
@@ -116,8 +139,9 @@ export class ExtratorDuble implements ExtratorDeDocumento {
     semente: number,
     confiancaBase: number,
     confiancaDoPrimeiroCampo?: number,
+    tipoDeclaradoPelaFixture?: (typeof TIPOS)[number],
   ): ResultadoDaExtracao {
-    const tipoCodigo = TIPOS[semente % TIPOS.length];
+    const tipoCodigo = tipoDeclaradoPelaFixture ?? TIPOS[semente % TIPOS.length];
     const nomes = CAMPOS_POR_TIPO[tipoCodigo];
 
     const campos: CampoBruto[] = nomes.map((nome, indice) => ({

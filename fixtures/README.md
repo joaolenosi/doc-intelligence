@@ -25,12 +25,38 @@ Eles são **válidos nos bytes**: o `file(1)` do sistema operacional os classifi
 como PNG, PDF, JPEG, HEIF e OLE2, do mesmo jeito que a inspeção do serviço
 classifica.
 
-Eles **não são fotografias de documentos**. O dublê deriva a resposta do hash do
-conteúdo e não olha pixel, então imagem de verdade não acrescentaria nada aqui.
-Um fornecedor real precisaria de digitalizações plausíveis, com foto torta,
-sombra e papel amassado, e isso está registrado como limitação:
-`docs/escopo-nao-implementado.md` explica que a qualidade da extração sobre
-imagem real não foi avaliada neste projeto.
+Eles **não são fotografias de documentos**. O dublê não olha pixel, então imagem
+de verdade não acrescentaria nada aqui. Um fornecedor real precisaria de
+digitalizações plausíveis, com foto torta, sombra e papel amassado, e isso está
+registrado como limitação: `docs/escopo-nao-implementado.md` explica que a
+qualidade da extração sobre imagem real não foi avaliada neste projeto.
+
+## O marcador de tipo
+
+Os arquivos aceitos embutem `TIPO-FIXTURE: <CODIGO>` no texto. O dublê lê esse
+marcador para classificar o documento.
+
+Isso existe porque, sem ele, o tipo saía do hash do conteúdo e `rg-frente.jpeg`
+era classificado como comprovante de residência. Não quebrava nada, mas fazia a
+demonstração mentir logo na primeira impressão, e quem está avaliando começa por
+ela.
+
+Ler um marcador no conteúdo continua sendo determinismo, e não trapaça: o dublê
+lê os bytes que recebeu, que é o que um modelo multimodal faria, só que de um
+jeito trivial. Qualquer arquivo sem o marcador, o que inclui tudo que não veio
+daqui, volta a ter o tipo derivado do hash.
+
+O `procuracao-registro-casa.pdf` declara `DESCONHECIDO` de propósito: procuração
+não está no catálogo de tipos, e ela serve para exercitar o caminho em que o
+serviço não decide sozinho e manda o documento para conferência humana.
+
+**Só o tipo vem do marcador.** Os valores dos campos continuam derivados do
+hash, então o nome que aparece no resultado não é o mesmo que está escrito
+dentro do arquivo: enviar `rg-frente.jpeg` devolve um RG, com nome e número
+fictícios que não são os do texto da fixture. Fazer o dublê extrair os valores
+do arquivo o transformaria num analisador de documento, que é justamente a
+peça que o fornecedor real substitui. O enunciado autoriza um dublê que devolve
+sempre a mesma resposta, e parei aí.
 
 O `identidade-foto-iphone.heic` merece uma nota própria: ele carrega uma caixa
 `ftyp` com marca `heic`, que é o que a inspeção usa e é como a foto de iPhone

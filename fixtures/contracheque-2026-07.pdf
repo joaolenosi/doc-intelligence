@@ -9,13 +9,14 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 302 >>
+<< /Length 337 >>
 stream
 BT
 /F1 12 Tf
 60 760 Td
 16 TL
 (DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE) Tj T*
+(TIPO-FIXTURE: CONTRACHEQUE) Tj T*
 () Tj T*
 (DEMONSTRATIVO DE PAGAMENTO) Tj T*
 () Tj T*
@@ -37,9 +38,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000594 00000 n 
+0000000629 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-664
+699
 %%EOF

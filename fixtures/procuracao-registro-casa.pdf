@@ -9,13 +9,14 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 560 >>
+<< /Length 595 >>
 stream
 BT
 /F1 12 Tf
 60 760 Td
 16 TL
 (DOCUMENTO FICTICIO PARA TESTE, SEM VALIDADE JURIDICA) Tj T*
+(TIPO-FIXTURE: DESCONHECIDO) Tj T*
 () Tj T*
 (PROCURACAO PARA REGISTRO DE IMOVEL) Tj T*
 () Tj T*
@@ -40,9 +41,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000852 00000 n 
+0000000887 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-922
+957
 %%EOF
