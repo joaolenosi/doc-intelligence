@@ -192,10 +192,10 @@ do fornecedor, se ele aceita chave de idempotência, se existe lista fechada de
 tipos de documento e se quem consome prefere webhook a polling. Está tudo nas
 perguntas abaixo.
 
-## Perguntas que eu vou mandar por e-mail
+## Perguntas que eu mandei por e-mail
 
-O enunciado diz que perguntar conta a favor, então vou perguntar no dia 1 e
-não no dia 3:
+O enunciado diz que perguntar conta a favor, então perguntei cedo e não no
+último dia. Foram estas seis:
 
 1. Quando o processamento termina, o sistema que consome deve ficar
    perguntando (polling) ou vocês preferem receber um aviso (webhook)? Isso
@@ -213,9 +213,17 @@ não no dia 3:
    o número que vale é o dele.
 6. O fornecedor aceita alguma chave de idempotência na chamada? Isso decide se
    um timeout do nosso lado nos faz pagar duas vezes pelo mesmo documento.
-7. A foto original de iPhone chega em HEIC, e não em JPEG. Vocês sabem se o
-   fornecedor aceita HEIC, ou o serviço vai precisar converter antes de
-   enviar?
+
+**Uma sétima ficou de fora.** Eu tinha listado aqui a pergunta sobre HEIC: a
+foto original de iPhone chega nesse formato e não em JPEG, e eu queria saber se
+o fornecedor aceita ou se o serviço precisaria converter antes de enviar. Ela
+não entrou no e-mail.
+
+Resolvi por decisão em vez de reenviar: o contrato aceita `image/heic` e
+`image/heif`, porque recusar o formato mais comum do público-alvo seria um
+serviço que não funciona para quem ele foi feito, e a conversão ficou registrada
+como risco em `escopo-nao-implementado.md`. Deixo a divergência escrita porque o
+e-mail enviado é verificável e este documento dizia sete.
 
 ## Plano dos três dias
 
