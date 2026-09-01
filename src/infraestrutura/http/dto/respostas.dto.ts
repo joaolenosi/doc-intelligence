@@ -39,6 +39,13 @@ export class RespostaDeRecebimento {
   @ApiProperty({ example: 2481003 })
   tamanhoBytes!: number;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Falso no primeiro envio deste conteudo, verdadeiro quando ele ja existia. Sem este campo, primeiro envio e reenvio so se distinguiriam pelo status code, e quem le apenas o corpo nao saberia qual dos dois aconteceu.',
+  })
+  jaExistia!: boolean;
+
   @ApiProperty({ example: '2026-09-01T12:04:11.221Z' })
   criadoEm!: string;
 }

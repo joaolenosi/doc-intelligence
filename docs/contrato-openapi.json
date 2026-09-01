@@ -3,39 +3,43 @@
   "paths": {
     "/v1/documentos": {
       "post": {
-        "description": "Responde na hora, sem esperar o modelo. 201 no primeiro envio de um conteudo e 200 quando aquele hash ja existe: o reenvio e o comportamento esperado, e nesse caso o documento nao e reprocessado mas a submissao e registrada.",
+        "description": "Responde na hora, sem esperar o modelo, e devolve um identificador para consulta.\n\n### Como saber que terminou\n\nO upload nao devolve o resultado: ele devolve `estado: RECEIVED`. Consulte\n`GET /v1/documentos/{id}` ate o estado sair de `RECEIVED` ou `PROCESSING`.\nUm intervalo de 2 a 5 segundos entre consultas e suficiente.\n\n### Quanto tempo leva\n\nA extracao e feita por um modelo multimodal de terceiro, que leva de 5 a 40\nsegundos por documento e as vezes falha. Nesta entrega o modelo e um duble\ndeterministico (`duble-deterministico-1`), entao o processamento termina em\ndezenas de milissegundos, mas o desenho e o mesmo: o servico espera ate 60\nsegundos por chamada, tenta no maximo 3 vezes com espera crescente, e retenta\napenas falha transitoria. Erro permanente vai direto para `FAILED`, porque\nrepetir o que falhou por motivo deterministico so multiplica o custo.\n\nQual modelo e qual versao de prompt produziram cada resultado aparecem no\n`GET`, no bloco `processamento`, junto com quantas chamadas o documento ja\ncustou. Isso existe porque o modelo do fornecedor vai trocar de versao, e sem\nesse registro ninguem consegue provar o que mudou quando a extracao piorar.\n\n### Reenvio\n\n`201` no primeiro envio de um conteudo, `200` quando aquele hash ja existe. O\nreenvio e o comportamento esperado e nao um erro: o mesmo documento chega mais\nde uma vez porque o cliente reenvia por inseguranca e o atendimento reenvia por\nprecaucao. Nesse caso o documento **nao** e reprocessado, entao nenhuma chamada\nnova e paga, mas a submissao e registrada e aparece em `submissoes` no `GET`,\ncom o nome e o canal de cada envio. O corpo traz `jaExistia` para o cliente\ndistinguir os dois casos sem depender do status code.\n\n### O que e recusado, e antes de custar qualquer coisa\n\nO tipo do arquivo sai da inspecao dos primeiros bytes, e nunca do nome, da\nextensao ou do content-type informado. Um `.pdf` com bytes de JPEG e um JPEG, e\num executavel chamado `rg.jpeg` recebe `415`. Aceitos: JPEG, PNG, HEIC, HEIF e\nPDF. HEIC esta na lista porque a foto original de iPhone chega assim.",
         "operationId": "DocumentosController_enviar",
         "parameters": [
           {
             "name": "X-API-Key",
             "in": "header",
-            "description": "Fronteira de autenticacao. Nao e seguranca de verdade: ver a especificacao.",
+            "description": "Fronteira de autenticacao entre sistemas internos, e nao seguranca de verdade. O valor preenchido aqui e o padrao do docker-compose deste projeto, entao a documentacao funciona sem configuracao nenhuma. Fora da maquina de desenvolvimento, troque a variavel API_KEY: o mecanismo real para trafego interno seria mTLS ou OAuth2 client credentials.",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "default": "chave-de-desenvolvimento"
             }
           },
           {
             "name": "Idempotency-Key",
             "in": "header",
-            "description": "Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes.",
+            "description": "Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes. E coisa diferente do reenvio: o reenvio do mesmo arquivo cria submissao nova de proposito, e a requisicao repetida nao. Deixe vazio para nao usar.",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "default": ""
             }
           },
           {
             "name": "X-Sistema-Origem",
             "in": "header",
-            "description": "Qual sistema interno enviou. Obrigatorio porque a unicidade da chave de idempotencia e por par sistema mais chave.",
+            "description": "Qual sistema interno enviou, e por qual canal o documento chegou. Obrigatorio porque a unicidade da chave de idempotencia e do par sistema mais chave: dois sistemas internos geram identificador sem coordenacao entre si, e uma colisao acidental faria um deles ter o envio descartado em silencio. Exemplos: crm-atendimento, portal-balcao.",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "default": "crm-atendimento"
             }
           }
         ],
         "requestBody": {
           "required": true,
+          "description": "Multipart com um unico campo. Ha arquivos ficticios prontos em `fixtures/` no repositorio, incluindo casos que devem ser recusados.",
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -46,7 +50,8 @@
                 "properties": {
                   "arquivo": {
                     "type": "string",
-                    "format": "binary"
+                    "format": "binary",
+                    "description": "O documento, em JPEG, PNG, HEIC, HEIF ou PDF, com no maximo 25 MB. O nome do arquivo e guardado so como registro e nunca vira caminho no disco."
                   }
                 }
               }
@@ -55,7 +60,7 @@
         },
         "responses": {
           "200": {
-            "description": "Reenvio: submissao registrada, documento nao reprocessado",
+            "description": "Reenvio: este conteudo ja existia. A submissao foi registrada e aparece em `submissoes` no GET, mas o documento nao foi reprocessado e nenhuma chamada nova ao modelo foi paga. `jaExistia` vem `true` e `estado` traz a situacao atual, que pode ja ser PROCESSED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -65,7 +70,7 @@
             }
           },
           "201": {
-            "description": "Primeiro envio deste conteudo",
+            "description": "Primeiro envio deste conteudo. O documento foi criado em RECEIVED e o trabalho foi enfileirado. `jaExistia` vem `false`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -129,10 +134,11 @@
           {
             "name": "X-API-Key",
             "in": "header",
-            "description": "Fronteira de autenticacao. Nao e seguranca de verdade: ver a especificacao.",
+            "description": "Fronteira de autenticacao entre sistemas internos, e nao seguranca de verdade. O valor preenchido aqui e o padrao do docker-compose deste projeto, entao a documentacao funciona sem configuracao nenhuma. Fora da maquina de desenvolvimento, troque a variavel API_KEY: o mecanismo real para trafego interno seria mTLS ou OAuth2 client credentials.",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "default": "chave-de-desenvolvimento"
             }
           },
           {
@@ -248,6 +254,11 @@
             "type": "number",
             "example": 2481003
           },
+          "jaExistia": {
+            "type": "boolean",
+            "example": false,
+            "description": "Falso no primeiro envio deste conteudo, verdadeiro quando ele ja existia. Sem este campo, primeiro envio e reenvio so se distinguiriam pelo status code, e quem le apenas o corpo nao saberia qual dos dois aconteceu."
+          },
           "criadoEm": {
             "type": "string",
             "example": "2026-09-01T12:04:11.221Z"
@@ -259,6 +270,7 @@
           "hashConteudo",
           "tipoMidia",
           "tamanhoBytes",
+          "jaExistia",
           "criadoEm"
         ]
       },

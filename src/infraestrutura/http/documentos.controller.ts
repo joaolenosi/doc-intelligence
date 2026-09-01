@@ -44,7 +44,13 @@ import {
 @ApiHeader({
   name: 'X-API-Key',
   required: true,
-  description: 'Fronteira de autenticacao. Nao e seguranca de verdade: ver a especificacao.',
+  // O valor exibido e o padrao de desenvolvimento, que ja esta no
+  // docker-compose.yml e no .env.example deste repositorio. Nao e credencial,
+  // e a descricao diz o que ele e para ninguem confundir com producao.
+  example: 'chave-de-desenvolvimento',
+  schema: { type: 'string', default: 'chave-de-desenvolvimento' },
+  description:
+    'Fronteira de autenticacao entre sistemas internos, e nao seguranca de verdade. O valor preenchido aqui e o padrao do docker-compose deste projeto, entao a documentacao funciona sem configuracao nenhuma. Fora da maquina de desenvolvimento, troque a variavel API_KEY: o mecanismo real para trafego interno seria mTLS ou OAuth2 client credentials.',
 })
 @Controller('v1/documentos')
 export class DocumentosController {
@@ -56,30 +62,91 @@ export class DocumentosController {
   @Post()
   @ApiOperation({
     summary: 'Recebe um documento',
-    description:
-      'Responde na hora, sem esperar o modelo. 201 no primeiro envio de um conteudo e 200 quando aquele hash ja existe: o reenvio e o comportamento esperado, e nesse caso o documento nao e reprocessado mas a submissao e registrada.',
+    description: [
+      'Responde na hora, sem esperar o modelo, e devolve um identificador para consulta.',
+      '',
+      '### Como saber que terminou',
+      '',
+      'O upload nao devolve o resultado: ele devolve `estado: RECEIVED`. Consulte',
+      '`GET /v1/documentos/{id}` ate o estado sair de `RECEIVED` ou `PROCESSING`.',
+      'Um intervalo de 2 a 5 segundos entre consultas e suficiente.',
+      '',
+      '### Quanto tempo leva',
+      '',
+      'A extracao e feita por um modelo multimodal de terceiro, que leva de 5 a 40',
+      'segundos por documento e as vezes falha. Nesta entrega o modelo e um duble',
+      'deterministico (`duble-deterministico-1`), entao o processamento termina em',
+      'dezenas de milissegundos, mas o desenho e o mesmo: o servico espera ate 60',
+      'segundos por chamada, tenta no maximo 3 vezes com espera crescente, e retenta',
+      'apenas falha transitoria. Erro permanente vai direto para `FAILED`, porque',
+      'repetir o que falhou por motivo deterministico so multiplica o custo.',
+      '',
+      'Qual modelo e qual versao de prompt produziram cada resultado aparecem no',
+      '`GET`, no bloco `processamento`, junto com quantas chamadas o documento ja',
+      'custou. Isso existe porque o modelo do fornecedor vai trocar de versao, e sem',
+      'esse registro ninguem consegue provar o que mudou quando a extracao piorar.',
+      '',
+      '### Reenvio',
+      '',
+      '`201` no primeiro envio de um conteudo, `200` quando aquele hash ja existe. O',
+      'reenvio e o comportamento esperado e nao um erro: o mesmo documento chega mais',
+      'de uma vez porque o cliente reenvia por inseguranca e o atendimento reenvia por',
+      'precaucao. Nesse caso o documento **nao** e reprocessado, entao nenhuma chamada',
+      'nova e paga, mas a submissao e registrada e aparece em `submissoes` no `GET`,',
+      'com o nome e o canal de cada envio. O corpo traz `jaExistia` para o cliente',
+      'distinguir os dois casos sem depender do status code.',
+      '',
+      '### O que e recusado, e antes de custar qualquer coisa',
+      '',
+      'O tipo do arquivo sai da inspecao dos primeiros bytes, e nunca do nome, da',
+      'extensao ou do content-type informado. Um `.pdf` com bytes de JPEG e um JPEG, e',
+      'um executavel chamado `rg.jpeg` recebe `415`. Aceitos: JPEG, PNG, HEIC, HEIF e',
+      'PDF. HEIC esta na lista porque a foto original de iPhone chega assim.',
+    ].join('\n'),
   })
   @ApiConsumes('multipart/form-data')
   @ApiHeader({
     name: 'X-Sistema-Origem',
     required: true,
+    example: 'crm-atendimento',
+    schema: { type: 'string', default: 'crm-atendimento' },
     description:
-      'Qual sistema interno enviou. Obrigatorio porque a unicidade da chave de idempotencia e por par sistema mais chave.',
+      'Qual sistema interno enviou, e por qual canal o documento chegou. Obrigatorio porque a unicidade da chave de idempotencia e do par sistema mais chave: dois sistemas internos geram identificador sem coordenacao entre si, e uma colisao acidental faria um deles ter o envio descartado em silencio. Exemplos: crm-atendimento, portal-balcao.',
   })
   @ApiHeader({
     name: 'Idempotency-Key',
     required: false,
-    description: 'Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes.',
+    example: 'req-2026-09-01-0001',
+    schema: { type: 'string', default: '' },
+    description:
+      'Opcional. A mesma requisicao repetida por timeout de rede nao cria duas submissoes. E coisa diferente do reenvio: o reenvio do mesmo arquivo cria submissao nova de proposito, e a requisicao repetida nao. Deixe vazio para nao usar.',
   })
   @ApiBody({
+    description:
+      'Multipart com um unico campo. Ha arquivos ficticios prontos em `fixtures/` no repositorio, incluindo casos que devem ser recusados.',
     schema: {
       type: 'object',
       required: ['arquivo'],
-      properties: { arquivo: { type: 'string', format: 'binary' } },
+      properties: {
+        arquivo: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'O documento, em JPEG, PNG, HEIC, HEIF ou PDF, com no maximo 25 MB. O nome do arquivo e guardado so como registro e nunca vira caminho no disco.',
+        },
+      },
     },
   })
-  @ApiCreatedResponse({ description: 'Primeiro envio deste conteudo', type: RespostaDeRecebimento })
-  @ApiOkResponse({ description: 'Reenvio: submissao registrada, documento nao reprocessado', type: RespostaDeRecebimento })
+  @ApiCreatedResponse({
+    description:
+      'Primeiro envio deste conteudo. O documento foi criado em RECEIVED e o trabalho foi enfileirado. `jaExistia` vem `false`.',
+    type: RespostaDeRecebimento,
+  })
+  @ApiOkResponse({
+    description:
+      'Reenvio: este conteudo ja existia. A submissao foi registrada e aparece em `submissoes` no GET, mas o documento nao foi reprocessado e nenhuma chamada nova ao modelo foi paga. `jaExistia` vem `true` e `estado` traz a situacao atual, que pode ja ser PROCESSED.',
+    type: RespostaDeRecebimento,
+  })
   @ApiResponse({ status: 400, description: 'Campo arquivo ausente ou header obrigatorio faltando', type: RespostaDeErro })
   @ApiResponse({ status: 401, description: 'Chave de API ausente ou invalida', type: RespostaDeErro })
   @ApiResponse({ status: 413, description: 'Arquivo acima de 25 MB', type: RespostaDeErro })
@@ -116,7 +183,7 @@ export class DocumentosController {
     // aconteceu. Ver ADR-006.
     resposta.status(saida.criado ? HttpStatus.CREATED : HttpStatus.OK);
     resposta.setHeader('Location', `/v1/documentos/${saida.documento.id}`);
-    return apresentarRecebimento(saida.documento);
+    return apresentarRecebimento(saida.documento, !saida.criado);
   }
 
   @Get(':id')

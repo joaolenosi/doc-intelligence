@@ -16,7 +16,8 @@
     "start:api:prod": "node dist/src/main.js",
     "start:worker:prod": "node dist/src/worker.js",
     "test:e2e": "playwright test",
-    "contrato:gerar": "ts-node scripts/gerar-contrato.ts"
+    "contrato:gerar": "ts-node scripts/gerar-contrato.ts",
+    "fixtures:gerar": "ts-node scripts/gerar-fixtures.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

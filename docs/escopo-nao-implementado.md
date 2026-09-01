@@ -68,6 +68,23 @@ existentes com as referenciadas em `doc_chave_armazenamento`, apagando o que nã
 tem dono e é mais velho que alguma folga. É o mesmo desenho da coleta que uma
 política de retenção vai precisar de qualquer jeito.
 
+### Qualidade da extração sobre imagem real
+
+As fixtures são válidas nos bytes e o `file(1)` as classifica corretamente, mas
+elas não são fotografias de documentos. O dublê deriva a resposta do hash e não
+olha pixel, então imagem de verdade não acrescentaria nada aos testes atuais.
+
+**O que isso deixa sem resposta.** O fato (b) descreve foto torta, com sombra,
+cortada, de papel amassado, tirada do celular. Nada neste projeto mede como a
+extração se comporta nesse material, porque não há fornecedor real ligado. Os
+limiares de confiança de 0,80 e 0,85 são chute declarado justamente por isso: não
+existe dado para calibrá-los.
+
+**Como entraria.** Um conjunto de digitalizações fictícias criadas de propósito
+com os defeitos do cenário, mais uma medição da taxa de conferência humana por
+tipo de documento contra o fornecedor real. É a mesma medição que o histórico de
+campo, registrado acima, tornaria possível com dados próprios.
+
 ### Relógios diferentes entre a aplicação e o banco
 
 A fila em banco passou a carimbar as datas com `NOW()` do Postgres, e não com o

@@ -8,13 +8,16 @@ import { Documento } from '../../../dominio/documento/documento.entidade';
  * com quem consome, e deixa-lo sair direto da entidade faria qualquer
  * renomeacao interna virar quebra de contrato sem ninguem perceber.
  */
-export function apresentarRecebimento(documento: Documento) {
+export function apresentarRecebimento(documento: Documento, jaExistia: boolean) {
   return {
     id: documento.id,
     estado: documento.situacao,
     hashConteudo: documento.hash.valor,
     tipoMidia: documento.tipoMidia,
     tamanhoBytes: documento.tamanhoBytes,
+    // O reenvio mudava so o status code, entao quem lia o corpo nao sabia se
+    // tinha criado ou reencontrado. Ver ADR-006.
+    jaExistia,
     criadoEm: documento.criadoEm.toISOString(),
   };
 }
