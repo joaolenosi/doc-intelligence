@@ -22,3 +22,4 @@ fazendo propaganda dela.
 | [009](009-migrations-em-sql.md) | Migrations em SQL, `synchronize` desabilitado |
 | [010](010-catalogo-de-tipos-em-tabela.md) | Catálogo de tipos de documento em tabela |
 | [011](011-processamento-por-tentativa.md) | Uma linha por tentativa, não um contador |
+| [012](012-nome-sugerido-e-dado-pessoal.md) | O nome sugerido é dado pessoal |

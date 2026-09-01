@@ -94,6 +94,7 @@ disco.
   "tipoDocumento": "RG",
   "confiancaTipo": 0.94,
   "nomePadronizado": "RG_MARIA_DA_SILVA_123456789_2026-08-31.jpg",
+  "motivosRevisao": [],
   "campos": [
     { "nome": "nome", "valor": "MARIA DA SILVA", "confianca": 0.96, "origem": "MODELO" }
   ],
@@ -117,6 +118,11 @@ disco.
 `campos` só aparece preenchido quando o estado é `PROCESSED` ou
 `REVIEW_REQUIRED`. Em `RECEIVED`, `PROCESSING`, `FAILED` e `REJECTED` ele vem
 vazio, porque não existe resultado. `404` quando o id não existe.
+
+`motivosRevisao` vem vazio em `PROCESSED` e traz os códigos da tabela de motivos
+quando o estado é `REVIEW_REQUIRED`. Quem consome precisa saber por que o
+documento parou, e "confiança baixa" e "faltou o número da identidade" levam a
+conferências diferentes. São códigos e nomes de campo, nunca valores.
 
 O bloco `submissoes` existe porque o nome original e a origem pertencem à
 submissão, e não ao documento. `nomeOriginalMaisRecente` é o nome da submissão
@@ -241,29 +247,108 @@ constante no código. Para o `RG` o template é
 `{tipo}_{nome}_{numero}_{data}.{extensao}`, que produz
 `RG_MARIA_DA_SILVA_123456789_2026-08-31.jpg`.
 
-Os marcadores entre chaves são de dois tipos. Três são embutidos: `{tipo}` é o
-código do tipo, `{data}` é a data de referência do documento quando aquele tipo
-tem uma e a de processamento quando não tem, e `{extensao}` vem do tipo de mídia
-detectado. Qualquer outro marcador é o **nome de um campo extraído**, resolvido
-pelo valor daquele campo. Foi isso que permitiu o template virar dado: mudar o
-padrão de nomes de um tipo é `UPDATE` numa linha, e não deploy.
-
-O titular vira ASCII maiúsculo sem acento, com `_` no lugar de espaço e corte em
-40 caracteres. Segmento cujo campo não veio é omitido inteiro, sem deixar
-separador solto, e o resultado continua válido em qualquer sistema de arquivos.
-A data é a de referência do documento quando o tipo tem uma, e a de
-processamento quando não tem. A extensão vem do tipo de mídia detectado, nunca
-da que o cliente mandou.
-
 O nome nunca deriva do nome enviado. O fato (b) diz que o arquivo chega como
 "WhatsApp Image 2026-08-11 at 09.12.33.jpeg", e usar isso como base seria
 propagar o problema que o serviço existe para resolver. Também é o que impede
 path traversal por nome de arquivo.
 
 É uma proposta, e só. O serviço devolve `nomePadronizado` no resultado e não
-renomeia nada: no disco o arquivo continua guardado pelo hash. Quem decide
-adotar o nome é o sistema que consome, e num documento que ainda vai passar por
-conferência humana o nome pode mudar depois da correção.
+renomeia nada: no disco o arquivo continua guardado pela chave de
+armazenamento. Quem decide adotar o nome é o sistema que consome, e num
+documento que ainda vai passar por conferência humana o nome pode mudar depois
+da correção.
+
+### Marcadores válidos
+
+Três são embutidos: `{tipo}` é o código do tipo, `{data}` é a data de
+referência do documento quando aquele tipo tem uma e a de processamento quando
+não tem, e `{extensao}` vem do tipo de mídia detectado.
+
+Qualquer outro marcador é o nome de um campo extraído, e **só pode ser um dos
+campos obrigatórios daquele tipo**. Essa restrição não é burocracia: um template
+que referencie campo opcional produziria nome incompleto como comportamento
+rotineiro, e o nome incompleto é exatamente o que se quer evitar. Amarrar o
+template aos obrigatórios faz as duas regras nunca discordarem.
+
+Um template que use marcador fora dessas duas categorias é **erro de
+configuração do catálogo**, não erro do documento. Ele é detectado quando o tipo
+é carregado, e o tratamento é deliberado: o serviço registra o erro em nível de
+erro no log, dizendo qual tipo e qual marcador, e o documento daquele tipo vai
+para `REVIEW_REQUIRED` com motivo `CATALOGO_INVALIDO`.
+
+O serviço **não** recusa subir por causa disso. Uma linha malformada no catálogo
+derrubaria o serviço inteiro, incluindo os tipos que estão corretos, e o
+catálogo existe justamente para ser editado por quem não faz deploy. Falhar
+alto e continuar de pé é a resposta certa aqui. Nome de marcador é nome de
+campo, e não valor de campo, então pode aparecer no log sem ferir o fato (d).
+
+### Normalização do valor
+
+Os campos vêm de extração sobre foto, então chegam com acento, espaço duplo,
+quebra de linha e caractere que não pode compor nome de arquivo. A regra é
+explícita, aplicada a cada valor antes de ele entrar no nome, e tem teste:
+
+1. normalizar em `NFD` e remover os sinais diacríticos, de modo que `João` vire
+   `Joao`;
+2. passar para maiúsculas;
+3. trocar qualquer sequência de espaço, tabulação ou quebra de linha por um `_`;
+4. descartar todo caractere fora de `A-Z`, `0-9`, `_` e `-`;
+5. colapsar sequências de `_` em um só;
+6. remover `_` do começo e do fim;
+7. truncar em 40 caracteres e remover de novo o `_` que a truncagem possa ter
+   deixado no fim.
+
+O hífen sobrevive de propósito, porque `{data}` produz `2026-08-31` e
+`competencia` costuma vir como `2026-07`.
+
+Se o resultado da normalização for vazio, e isso acontece quando o modelo
+devolve só pontuação ou um caractere que não sobrevive à regra, o marcador conta
+como **sem valor**, e cai no caso abaixo. Valor que não é representável é
+equivalente a valor que não veio.
+
+O nome inteiro é truncado em 200 caracteres, com folga sobre o limite de 255 de
+sistema de arquivos, para o caso de um tipo com muitos marcadores.
+
+### Quando falta valor para um marcador
+
+O documento vai para `REVIEW_REQUIRED`, `doc_nome_sugerido` fica nulo e o motivo
+é registrado dizendo **qual marcador ficou sem valor**.
+
+Não gerar nome incompleto e não interromper o processamento é deliberado. Um
+nome com buraco seria adotado por quem consome sem ninguém notar, e uma
+interrupção jogaria fora uma extração já paga, que na maior parte das vezes está
+correta em todos os outros campos.
+
+Na prática esse caso quase sempre coincide com o da política de confiança, já
+que o marcador só pode ser campo obrigatório e campo obrigatório ausente já leva
+a `REVIEW_REQUIRED`. A coincidência é boa: as duas regras chegam à mesma
+conclusão por caminhos diferentes. Ele aparece sozinho quando o campo veio, com
+confiança alta, e o valor não sobreviveu à normalização.
+
+Os motivos ficam em `doc_motivos_revisao`, um vetor de texto, e aparecem no
+`GET` como `motivosRevisao`. São códigos e nomes de campo, nunca valor.
+
+| Motivo | Quando |
+|---|---|
+| `CONFIANCA_TIPO_BAIXA` | confiança do tipo abaixo do limiar |
+| `CONFIANCA_CAMPO_BAIXA` | algum campo obrigatório abaixo do limiar |
+| `CAMPO_OBRIGATORIO_AUSENTE` | campo obrigatório não veio |
+| `NOME_INCOMPLETO` | marcador do template ficou sem valor |
+| `TIPO_DESCONHECIDO` | extrator devolveu tipo fora do catálogo |
+| `CATALOGO_INVALIDO` | template do tipo usa marcador inválido |
+
+### O nome sugerido é dado pessoal
+
+Ele é montado a partir dos campos extraídos, então carrega nome de pessoa,
+número de documento e data. Isso o coloca sob o fato (d) junto com `cae_valor`,
+apesar de ele ser o resultado principal do serviço.
+
+Duas consequências. Ele **nunca** aparece em log, em nenhuma hipótese, nem em
+mensagem de erro, e essa é a regra mais fácil de quebrar por descuido, porque
+parece um identificador técnico e não parece dado pessoal. E ele **não** aparece
+na listagem, quando ela existir, porque a listagem foi definida como a rota que
+não devolve valor extraído, e um nome composto exatamente desses valores não
+pode ser a exceção. O raciocínio está no ADR-012.
 
 ## Modelo de dados
 
@@ -299,7 +384,8 @@ A tabela de controle de migrations do TypeORM não segue essa convenção, porqu
 | `doc_situacao` | `VARCHAR(30)` | `CHECK` nos seis valores do ciclo de vida |
 | `doc_tpd_id` | `INTEGER` | FK para `tipo_documento`, nulo até classificar |
 | `doc_confianca_tipo` | `NUMERIC(4,3)` | confiança consolidada do tipo |
-| `doc_nome_sugerido` | `TEXT` | nulo até processar |
+| `doc_nome_sugerido` | `TEXT` | nulo até processar, e nulo quando o nome ficou incompleto |
+| `doc_motivos_revisao` | `TEXT[]` | por que parou, códigos e nomes de campo |
 | `doc_versao` | `SMALLINT` | lock otimista, prepara o fato (g) |
 | `doc_criado_em` | `TIMESTAMPTZ` | |
 | `doc_atualizado_em` | `TIMESTAMPTZ` | |
@@ -539,9 +625,14 @@ O fato (d) diz que o conteúdo é dado pessoal e parte dele é sensível. Isso m
 log, armazenamento e teste.
 
 Log estruturado carrega id do documento, estado, duração, tentativa e código de
-erro. Nunca carrega valor de campo extraído, conteúdo do arquivo, corpo do
-multipart ou resposta crua do extrator. É a regra mais fácil de quebrar por
-descuido, então tem teste.
+erro. Nunca carrega valor de campo extraído, **nome sugerido**, conteúdo do
+arquivo, corpo do multipart ou resposta crua do extrator. É a regra mais fácil
+de quebrar por descuido, então tem teste.
+
+O nome sugerido está nessa lista apesar de ser o resultado principal do serviço,
+porque ele é montado a partir dos campos extraídos e carrega nome de pessoa e
+número de documento. Ele parece identificador técnico e não parece dado pessoal,
+e é por isso que precisa estar escrito.
 
 O arquivo é gravado em `storage/`, fora do controle de versão, com o nome
 derivado do hash e a extensão do tipo detectado. O nome enviado pelo cliente

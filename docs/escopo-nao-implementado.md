@@ -134,11 +134,17 @@ o tempo na consulta por identificador funcionando de ponta a ponta. É o item
 mais barato desta lista e o primeiro que eu faria a seguir.
 
 **Como entraria.** `GET /v1/documentos` com paginação por cursor sobre
-`doc_criado_em`, filtro por estado apoiado no índice
-`(doc_situacao, doc_criado_em)` que já existe, e a regra de nunca devolver valor
-de campo extraído em listagem, por causa do fato (d): listagem devolve
-identificador, estado, tipo e nome padronizado, e quem quiser o conteúdo consulta
-o documento específico.
+`doc_criado_em` e filtro por estado, apoiado no índice
+`(doc_situacao, doc_criado_em)` que já existe.
+
+**E com uma limitação já decidida, que precisa sobreviver a quem implementar.**
+A listagem devolve identificador, estado, tipo e datas, e **não** devolve o nome
+sugerido, apesar de ele ser o campo mais útil que poderia estar ali. O nome é
+montado a partir dos campos extraídos e carrega nome de pessoa e número de
+documento, então cai sob o fato (d) junto com `cae_valor`. Quem precisa do nome
+consulta o documento específico. O raciocínio, com as alternativas descartadas,
+está no ADR-012, e ele existe porque sem esse registro a decisão óbvia de quem
+implementar seria colocar o nome na resposta.
 
 ### HEIC e orientação por EXIF
 
