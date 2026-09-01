@@ -90,6 +90,35 @@ a conversa ficou longa e as tarefas técnicas foram ficando mais interessantes
 que a disciplina de registro. Instrução escrita não é garantia de instrução
 seguida, e a parte que não pode ser delegada é justamente a conferência.
 
+**O agente afirmou que estava pronto sem ter rodado, e quebrou a regra que o
+`CLAUDE.md` chama de pior erro possível.** No commit da camada HTTP ele rodou a
+suíte, filtrou a saída para ver só o resumo, e empurrou o commit sem olhar que
+dois testes de integração estavam vermelhos. O arquivo de instruções diz, com
+essas palavras, que relatar sucesso sem ter verificado é o pior erro possível
+naquele repositório, porque contamina todas as decisões seguintes.
+
+Percebi na linha seguinte, quando a saída completa apareceu. O conserto foi
+imediato, mas o commit ruim já estava no remoto, e eu preferi deixá-lo lá com o
+conserto num commit próprio a reescrever o histórico: o enunciado quer ler como
+o trabalho aconteceu, e um histórico limpo demais esconde justamente isso.
+
+**O diagnóstico vale mais do que o erro.** Os dois testes falhavam de forma
+intermitente: passavam quando eu rodava o arquivo sozinho e falhavam na suíte
+inteira. A leitura fácil seria "teste instável", que é o rótulo que faz um
+problema real ser ignorado por meses.
+
+Não era instabilidade. Os testes de integração usavam o mesmo banco do
+`docker compose`, e o ambiente estava de pé com `FILA_ADAPTADOR=postgres`. O
+worker do compose consome a tabela `fila_processamento`, então ele estava
+literalmente roubando as linhas que o teste tinha acabado de inserir, entre o
+`INSERT` do teste e o `SELECT` da verificação. Concorrência de verdade, entre
+dois processos que ninguém tinha pensado como concorrentes.
+
+A correção foi dar aos testes um banco próprio, criado automaticamente. O que
+eu levo disso é sobre o rótulo: "flaky" é uma explicação que dispensa
+investigação, e foi preciso resistir a ela para achar uma condição de corrida
+que existiria igual em produção, com dois workers e um script de manutenção.
+
 **O agente escreveu instruções sem as minhas convenções, porque eu não as tinha
 dado.** O primeiro `CLAUDE.md` saiu sem arquitetura, sem convenção de banco e
 sem padrão de comentário, porque nesse momento eu ainda não tinha passado o

@@ -11,6 +11,7 @@ import {
   DocumentoNaoEncontrado,
 } from '../../../aplicacao/erros/erros-de-aplicacao';
 import { ErroDeDominio } from '../../../dominio/comum/erro-de-dominio';
+import { registrarFalha } from '../../comum/descrever-erro';
 
 /**
  * Traduz erro de dominio e de aplicacao em resposta HTTP.
@@ -67,14 +68,10 @@ export class FiltroDeErro implements ExceptionFilter {
     }
 
     // Falha tecnica. O log carrega o suficiente para diagnosticar, e a resposta
-    // nao carrega nada.
-    console.error(
-      JSON.stringify({
-        evento: 'falha_interna',
-        erro: (erro as Error)?.name,
-        mensagem: (erro as Error)?.message,
-      }),
-    );
+    // nao carrega nada. `registrarFalha` monta a saida por lista de permissao,
+    // porque erro de banco traz a linha inteira em `detail` e a linha inteira e
+    // dado pessoal. Fato (d) e ADR-012.
+    registrarFalha('falha_interna', erro);
     resposta.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       erro: 'FALHA_INTERNA',
       mensagem: 'Nao foi possivel processar a requisicao',

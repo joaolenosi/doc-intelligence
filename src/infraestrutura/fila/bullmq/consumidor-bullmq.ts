@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 import { ProcessarDocumento } from '../../../aplicacao/casos-de-uso/processar-documento.caso-de-uso';
+import { registrarFalha } from '../../comum/descrever-erro';
 import { FILA_DE_PROCESSAMENTO } from '../nome-da-fila';
 
 /**
@@ -28,17 +29,12 @@ export function criarConsumidorBullMq(entrada: {
   );
 
   worker.on('failed', (job, erro) => {
-    // Log sem conteudo de documento. Id, tentativa e codigo de erro bastam para
-    // diagnosticar, e o valor extraido nunca entra aqui. Fato (d).
-    console.error(
-      JSON.stringify({
-        evento: 'trabalho_falhou',
-        documentoId: job?.data?.documentoId,
-        tentativa: job?.attemptsMade,
-        erro: erro.name,
-        codigo: (erro as { codigo?: string }).codigo,
-      }),
-    );
+    // Log sem conteudo de documento. Id, tentativa e codigo bastam para
+    // diagnosticar, e quem decide o que do erro pode sair e `registrarFalha`.
+    registrarFalha('trabalho_falhou', erro, {
+      documentoId: job?.data?.documentoId,
+      tentativa: job?.attemptsMade,
+    });
   });
 
   return worker;

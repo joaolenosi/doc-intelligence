@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { ProcessarDocumento } from '../../../aplicacao/casos-de-uso/processar-documento.caso-de-uso';
+import { registrarFalha } from '../../comum/descrever-erro';
 import { esperaAntesDeRetentar } from '../nome-da-fila';
 
 /**
@@ -77,9 +78,7 @@ export class ConsumidorPostgres {
       try {
         pegou = await this.processarUm();
       } catch (erro) {
-        console.error(
-          JSON.stringify({ evento: 'laco_falhou', laco: indice, erro: (erro as Error).name }),
-        );
+        registrarFalha('laco_falhou', erro, { laco: indice });
       }
       // So dorme quando a fila esta vazia. Com trabalho disponivel o laco segue
       // direto, que e o que faz o pico drenar.

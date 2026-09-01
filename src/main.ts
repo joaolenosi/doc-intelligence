@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { registrarFalha } from './infraestrutura/comum/descrever-erro';
 import { carregarConfiguracao } from './infraestrutura/config/configuracao';
 import { ApiModule } from './infraestrutura/modulos/api.module';
 import { dataSource } from './infraestrutura/persistencia/typeorm/data-source';
@@ -41,6 +42,6 @@ async function subir(): Promise<void> {
 }
 
 subir().catch((erro) => {
-  console.error(JSON.stringify({ evento: 'api_nao_subiu', erro: (erro as Error).message }));
+  registrarFalha('api_nao_subiu', erro);
   process.exit(1);
 });

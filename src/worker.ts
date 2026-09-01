@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Worker } from 'bullmq';
+import { registrarFalha } from './infraestrutura/comum/descrever-erro';
 import { carregarConfiguracao } from './infraestrutura/config/configuracao';
 import { criarConsumidorBullMq } from './infraestrutura/fila/bullmq/consumidor-bullmq';
 import { ConsumidorPostgres } from './infraestrutura/fila/postgres/consumidor-postgres';
@@ -67,6 +68,6 @@ async function subir(): Promise<void> {
 }
 
 subir().catch((erro) => {
-  console.error(JSON.stringify({ evento: 'worker_nao_subiu', erro: (erro as Error).message }));
+  registrarFalha('worker_nao_subiu', erro);
   process.exit(1);
 });
