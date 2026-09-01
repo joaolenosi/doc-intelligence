@@ -118,6 +118,62 @@ aconteceu. É o mesmo tipo de afirmação plausível e verificável do caso do c
 inicial, e reforça a regra que eu tirei de lá: afirmação sobre o estado do
 repositório precisa ser conferida no repositório, e não lembrada.
 
+**O agente escreveu um comentário que descrevia um código que não existia.** Em
+`nome-da-fila.ts`, a função de espera entre tentativas estava anotada como
+"backoff exponencial com jitter, compartilhado pelos dois adaptadores". Ela não
+era compartilhada: só o adaptador de Postgres a chamava, e o do BullMQ, que é o
+padrão, usava o `exponential` nativo. O jitter, que é a única razão de a função
+existir em vez de se usar o nativo, faltava justamente no caminho padrão.
+
+Percebi porque perguntei se o projeto usava BullMQ, sem desconfiar de nada, e o
+próprio agente foi ler o código antes de responder e achou a divergência. Não
+fui eu que peguei, e registro assim porque é o que aconteceu.
+
+É o terceiro caso da mesma família, junto com o commit inicial e o MCP, e o que
+muda aqui é o suporte. Os dois primeiros eram frases em documento, e documento
+todo mundo lê sabendo que pode ter envelhecido. Este estava num comentário
+encostado na função, que é o lugar de maior autoridade que uma frase pode
+ocupar num repositório: quem lê o comentário está lendo o código, e não passa
+pela cabeça conferir se um está descrevendo o outro. O `CLAUDE.md` exige
+comentário explicando a intenção justamente porque eles são metade da
+rastreabilidade, e essa exigência tem o outro lado, que é o comentário errado
+valer tanto quanto o certo.
+
+Corrigi pelo lado do código, e não pelo do texto: o publicador passou a pedir
+`backoff: { type: 'custom' }` e o worker registra a mesma função do adaptador de
+Postgres. A função não tinha teste nenhum enquanto valia para um adaptador só, e
+ganhou um agora que decide a espera dos dois.
+
+**Duas falhas que só existiam no Windows, achadas ao rodar a suíte.** Foram
+achadas de graça, porque o pedido era outro, e as duas passavam no Docker e
+quebravam na minha máquina.
+
+A primeira era chata e pequena: o teste de fronteira de autenticação recortava o
+caminho do arquivo com `replace(RAIZ + '/')`, o que assume que o separador é a
+barra. No Windows não é, o recorte não acontecia, e o teste comparava caminho
+absoluto com caminho relativo.
+
+A segunda é séria e eu não teria achado sozinho. As fixtures em PDF são quase
+todas ASCII, sem stream comprimido, então o git as classifica como texto. Com
+`core.autocrlf=true`, que é o padrão de instalação no Windows, o checkout troca
+cada `\n` por `\r\n`: o `procuracao-registro-casa.pdf` tinha 1189 bytes no disco
+contra 1140 no commit, 49 bytes de diferença. Um PDF guarda em `xref` a posição
+em bytes de cada objeto, então aqueles 49 bytes deslocam todas elas. O arquivo
+continua começando com `%PDF` e continua passando na inspeção por magic bytes, e
+é um PDF malformado. Quer dizer que qualquer pessoa que clonasse este
+repositório no Windows, que é o que o enunciado pede que seja possível, receberia
+duas fixtures corrompidas em silêncio.
+
+Só apareceu porque existe um teste comparando byte a byte o arquivo no disco com
+o que o gerador produz. Ele foi escrito para pegar alguém editando um fixture na
+mão, e pegou uma coisa completamente diferente. É o melhor argumento que eu tenho
+a favor de asserção exata em vez de asserção frouxa: um teste que só verificasse
+"é um PDF válido" teria passado.
+
+A correção é um `.gitattributes` marcando `fixtures/**` como `-text`. O conteúdo
+no git sempre esteve certo, então quem clonou antes precisa de um
+`git add --renormalize .` para o disco voltar a bater.
+
 **O agente parou de registrar os meus prompts e eu tive que cobrar.** O
 `CLAUDE.md` tem uma regra explícita mandando ele me lembrar de registrar o
 prompt antes de seguir para a próxima tarefa. Nos prompts 9 e 10 ele foi direto
