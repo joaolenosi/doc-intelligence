@@ -25,21 +25,35 @@ preservados.
 ## O que eu configurei, e o que eu não configurei
 
 O enunciado pede as skills, subagentes, comandos, hooks e servidores MCP que eu
-tiver configurado, tudo versionado. **Eu não configurei nenhum**, e por isso não
-existe diretório `.claude/` neste repositório. Prefiro dizer isso com todas as
-letras a deixar a ausência parecer esquecimento.
+tiver configurado, tudo versionado.
+
+**Um servidor MCP:** o do Playwright, em `.mcp.json`, na raiz. Ele entrou
+quando eu quis testes que batessem na API pela rede, contra o ambiente do
+`docker compose`, em vez de subir o Nest dentro do Jest.
+
+Sobre ele eu preciso ser honesto quanto ao alcance: a Trilha A não tem
+interface, então a automação de navegador, que é o que o MCP do Playwright
+oferece de específico, **não foi exercitada**. O que este projeto usa é o
+executor de testes de API do Playwright, e isso não depende do MCP. Deixei o
+servidor configurado e versionado porque o enunciado pede o registro do que foi
+configurado, e não porque ele carregou o trabalho.
+
+**Nenhuma skill, nenhum subagente, nenhum comando e nenhum hook**, e não existe
+diretório `.claude/` neste repositório. Prefiro dizer isso com todas as letras a
+deixar a ausência parecer esquecimento.
 
 O motivo é que o trabalho desta entrega é sequencial e cabe num contexto só:
 ler o enunciado, decidir, especificar, implementar a fatia. Subagente serve para
 paralelizar exploração ampla, e não havia o que explorar num repositório que
-começou vazio. Hook serviria para automatizar uma verificação repetida, e a
-verificação que importa aqui, a fronteira entre domínio e framework, vai ser um
-teste do próprio projeto, que roda no `npm test` e vale para qualquer pessoa que
-clonar o repositório, não só para mim rodando com agente.
+começou vazio. Hook serviria para automatizar uma verificação repetida, e as
+verificações que importam aqui, a fronteira entre domínio e framework e a
+fronteira de autenticação, viraram testes do próprio projeto, que rodam no
+`npm test` e valem para qualquer pessoa que clonar o repositório, não só para
+mim rodando com agente.
 
-Se eu fosse configurar um, seria um hook de pré-commit que recusa commit
-contendo o que pareça um CPF ou RG válido, por causa do fato (d). Não fiz porque
-a mesma garantia já está no `CLAUDE.md` como regra e nos fixtures gerados com
+Se eu fosse configurar um hook, seria um de pré-commit recusando commit que
+contenha o que pareça um CPF ou RG válido, por causa do fato (d). Não fiz porque
+a mesma garantia já está no `CLAUDE.md` como regra e nos fixtures com
 identificadores inválidos de propósito, e eu preferi não acrescentar
 infraestrutura que só funciona na minha máquina.
 

@@ -16,3 +16,8 @@ coverage/
 # nem ficticio, junto do codigo.
 uploads/
 storage/
+
+# Playwright
+test-results/
+playwright-report/
+testes/e2e/resultado.json
