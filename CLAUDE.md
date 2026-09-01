@@ -86,7 +86,7 @@ escolha por mim e não crie um default silencioso.
 
 Tabelas e colunas em português. Toda coluna carrega o prefixo formado pelas
 iniciais do nome da tabela. A tabela `documento` tem `doc_id`,
-`doc_nome_original`, `doc_criado_em`. A tabela `campo_extraido` tem `cae_id`,
+`doc_hash_conteudo`, `doc_criado_em`. A tabela `campo_extraido` tem `cae_id`,
 `cae_nome`, `cae_valor`.
 
 Chave primária sempre auto incremento. Toda relação sai como chave estrangeira

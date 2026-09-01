@@ -39,7 +39,7 @@ src/
     documento/        entidade, estados, tipos, campo, confiança, políticas
     submissao/        entidade
   aplicacao/
-    portas/           as oito interfaces abaixo
+    portas/           as nove interfaces abaixo
     casos-de-uso/     receber, processar, consultar
   infraestrutura/
     http/             controller, DTO de entrada, guard, filtro de erro
@@ -67,6 +67,7 @@ de verificar quando tudo roda junto.
 |---|---|---|
 | `RepositorioDeDocumento` | persistência do documento | TypeORM sobre Postgres |
 | `RepositorioDeSubmissao` | persistência do envio | TypeORM sobre Postgres |
+| `CatalogoDeTipos` | campos obrigatórios e template de nome por tipo | TypeORM sobre Postgres |
 | `ArmazenamentoDeArquivo` | onde o binário mora | disco local |
 | `InspetorDeArquivo` | tipo real pelo conteúdo | leitura de magic bytes |
 | `CalculadoraDeHash` | identidade do conteúdo | sha-256 |
@@ -77,6 +78,14 @@ de verificar quando tudo roda junto.
 `Relogio` é porta porque a política de nomenclatura usa data e a política de
 retry usa tempo, e teste que depende do relógio real é teste que falha sozinho
 de madrugada.
+
+`CatalogoDeTipos` existe porque os campos obrigatórios e o template de nome
+deixaram de ser constante no domínio e passaram a ser linha em tabela, pelo
+ADR-010. A divisão que isso cria vale ser dita: o domínio continua dono da
+**regra**, ou seja comparar confiança com limiar e montar, sanitizar e truncar o
+nome, e o catálogo é dono dos **parâmetros**, que chegam às políticas como
+dados. É dependência de dados e não de framework, então a fronteira do ADR-002
+continua de pé.
 
 Enfileirar e consumir são coisas separadas de propósito. A porta que a aplicação
 conhece só sabe publicar, porque a API só precisa publicar. O consumo é iniciativa
@@ -89,15 +98,21 @@ consumidor, que é detalhe de quem entrega a mensagem.
 **Receber.** O controller valida a forma da requisição e entrega o conteúdo ao
 caso de uso. Ele inspeciona os bytes, recusa o que não for aceito, calcula o
 hash, procura documento com aquele hash e, se achar, registra apenas mais uma
-submissão e devolve o documento existente com `200`. Se não achar, grava o
-arquivo pelo hash, cria o documento em `RECEIVED`, cria a submissão, publica o
-trabalho e devolve `201`. A resposta sai antes de qualquer chamada ao modelo.
+submissão e devolve o documento existente com `200`. Se não achar, gera a chave
+de armazenamento, grava o arquivo por ela, cria o documento em `RECEIVED`, cria
+a submissão, publica o trabalho e devolve `201`. A resposta sai antes de
+qualquer chamada ao modelo.
+
+O `200` do reenvio não significa "não fiz nada": o documento não é processado de
+novo, mas a submissão é registrada, e o `GET` passa a contar mais um envio e
+mais um canal.
 
 **Processar.** O worker consome, move o documento para `PROCESSING`, chama o
 extrator com timeout, recebe tipo, campos e confianças, aplica a política de
 confiança para decidir entre `PROCESSED` e `REVIEW_REQUIRED`, monta o nome
-padronizado, grava campos e resultado com o modelo e a versão de prompt, e
-registra o evento de auditoria. Falha transitória incrementa tentativas e volta
+padronizado a partir do template do catálogo, grava os campos, grava a linha de
+`processamento` daquela tentativa com provedor, modelo, versão de prompt,
+duração e custo estimado, e registra o evento de auditoria. Falha transitória incrementa tentativas e volta
 para a fila com backoff. Tentativas esgotadas ou falha permanente terminam em
 `FAILED`.
 
@@ -109,8 +124,9 @@ resultado.
 O fornecedor de IA é a troca mais barata: escrever outro adaptador de
 `ExtratorDeDocumento` e mudar a fábrica. O domínio não sabe que ele existe. O
 fato (f) diz que o modelo vai trocar de versão, e por isso o resultado carrega
-`doc_modelo` e `doc_versao_prompt`: sem eles, quando a extração piorar depois de
-uma troca, ninguém consegue provar o que mudou. Os prompts são arquivos
+`pro_modelo` e `pro_versao_prompt` em cada tentativa: sem eles, quando a
+extração piorar depois de uma troca, ninguém consegue provar o que mudou, nem
+comparar a duração e o custo da versão nova com os da anterior. Os prompts são arquivos
 versionados em `infraestrutura/ia/prompts`, com identificador e versão no nome,
 para que mudar prompt seja commit e não configuração invisível.
 
@@ -141,7 +157,7 @@ tempo esperar nem quantos trabalhos rodam em paralelo.
 
 A consequência honesta é que os dois adaptadores não são intercambiáveis em
 comportamento fino. O BullMQ conta tentativas do jeito dele e o adaptador de
-Postgres conta no `prt_tentativas`. O que o sistema garante igual nos dois é o
+Postgres conta no `flp_tentativas`. O que o sistema garante igual nos dois é o
 teto e o estado final, e o que varia é a curva de espera. Preferi essa
 imprecisão a vazar `attemptsMade` para dentro do caso de uso.
 

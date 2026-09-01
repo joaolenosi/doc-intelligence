@@ -37,7 +37,7 @@ trabalho cabem na mesma transação.
 
 **Como entraria.** Uma rotina periódica que busca documentos em `RECEIVED` com
 `doc_criado_em` mais velho que alguns minutos e republica o trabalho, apoiada no
-índice `(doc_estado, doc_criado_em)` que já existe. Republicar é seguro porque o
+índice `(doc_situacao, doc_criado_em)` que já existe. Republicar é seguro porque o
 processamento já é guardado pelo estado: um documento que saiu de `RECEIVED` não
 volta. A alternativa mais robusta seria o padrão outbox, gravando a intenção de
 publicar na mesma transação do documento e deixando um processo separado
@@ -57,8 +57,8 @@ oferece isso, e virou pergunta por e-mail.
 **Como entraria.** Chave de idempotência derivada do hash do documento e da
 versão do prompt, enviada em cada chamada, com o adaptador tratando a resposta
 repetida como resultado válido. Enquanto isso não existir, o mitigador barato é
-observar quantas chamadas cada documento consumiu, que é o que `doc_tentativas`
-já registra.
+observar quantas chamadas cada documento consumiu, que é o que a tabela
+`processamento` já registra, com o custo estimado de cada uma.
 
 ### Dado pessoal: cifragem em repouso e política de retenção
 
@@ -95,6 +95,22 @@ O que está é o desenho: o estado `REVIEW_REQUIRED` existe e é devolvido no
 contrato, `cae_origem` distingue `MODELO` de `CORRECAO_HUMANA`, e `doc_versao`
 está na tabela para lock otimista.
 
+**Uma limitação do desenho atual, que eu prefiro registrar agora.** Existe uma
+linha por documento e campo, então uma correção humana substitui o valor do
+modelo. `cae_origem` passa a indicar a origem do valor atual e não preserva o
+que o modelo tinha devolvido. Para esta fatia é aceitável, porque ninguém
+corrige nada ainda. Deixa de ser no dia em que a conferência existir, e a perda
+não é do valor antigo em si: é da comparação entre o que o modelo respondeu e o
+que a pessoa corrigiu, que é o único jeito de medir a taxa real de acerto do
+fornecedor com dados próprios. Sem isso, a única fonte sobre a qualidade do
+fornecedor é o próprio fornecedor.
+
+**Como entraria.** Histórico do campo, com uma linha por versão do valor ligada
+à tentativa de `processamento` que a produziu, e a linha atual apontada por
+marcador ou pela mais recente. Aí a métrica de acerto por tipo de documento e
+por versão de prompt sai de consulta, e casa com o que o ADR-011 já guarda sobre
+custo e duração.
+
 **Como entraria.** Uma rota que entrega o próximo documento da fila usando
 `SELECT ... FOR UPDATE SKIP LOCKED`, que é o mesmo mecanismo já implementado no
 adaptador de fila do Postgres, de modo que duas pessoas nunca peguem o mesmo
@@ -119,7 +135,7 @@ mais barato desta lista e o primeiro que eu faria a seguir.
 
 **Como entraria.** `GET /v1/documentos` com paginação por cursor sobre
 `doc_criado_em`, filtro por estado apoiado no índice
-`(doc_estado, doc_criado_em)` que já existe, e a regra de nunca devolver valor
+`(doc_situacao, doc_criado_em)` que já existe, e a regra de nunca devolver valor
 de campo extraído em listagem, por causa do fato (d): listagem devolve
 identificador, estado, tipo e nome padronizado, e quem quiser o conteúdo consulta
 o documento específico.
@@ -190,7 +206,7 @@ demonstração: a porta `ArmazenamentoDeArquivo` já existe, e trocar o adaptado
 o exemplo mais simples de troca de peça do projeto inteiro.
 
 **Como entraria.** Um adaptador da mesma porta. O caminho gravado em
-`doc_caminho_armazenamento` já é opaco para o domínio, então nada além do
+`doc_chave_armazenamento` já é opaco para o domínio, então nada além do
 adaptador muda.
 
 ### Autenticação real
@@ -204,7 +220,8 @@ credentials com escopo por cliente. O guard já é o ponto único onde isso entr
 ### Observabilidade e custo por documento
 
 Não há métrica, tracing nem painel. O que existe é log estruturado e
-`doc_tentativas`, que responde quanto cada documento custou em chamadas.
+a tabela `processamento`, que já guarda uma linha por tentativa com duração e
+custo estimado.
 
 Ficou fora por prazo. Num serviço cobrado por chamada, a métrica que importa não
 é latência, é chamadas por documento processado: se essa razão subir, alguém
