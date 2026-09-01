@@ -49,3 +49,9 @@ LEMBRE-SE DE DOCUMENTAR TODOS OS MEUS PROMPTS E IR DANDO COMMIT E PUSH POR ETAPA
 lembrar de registrar o prompt antes de seguir para a próxima tarefa, e ele
 deixou de fazer isso nos prompts 9 e 10, seguindo direto para o trabalho. Está
 anotado em `docs/uso-de-ia.md`.
+
+## Prompt 12
+
+```
+pode seguir com as políticas e as entidades
+```
