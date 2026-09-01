@@ -1,8 +1,20 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { arquivosTs } from './detector-de-import';
 
 const RAIZ = join(__dirname, '..', '..');
+
+/**
+ * O caminho sai relativo a raiz e sempre com barra normal.
+ *
+ * A versao anterior recortava o prefixo com `replace(RAIZ + '/')`, o que assume
+ * que o separador e a barra. No Windows o separador e a contrabarra, o recorte
+ * nao acontecia, e a comparacao virava caminho absoluto contra caminho
+ * relativo: este teste falhava na maquina de quem clonasse o repositorio no
+ * Windows, e passava no Docker, que e onde ele costumava ser rodado.
+ */
+const caminhoRelativo = (arquivo: string): string =>
+  relative(RAIZ, arquivo).split(sep).join('/');
 
 /**
  * O guard e global, entao rota nova nasce protegida. A protecao real esta em
@@ -29,7 +41,7 @@ describe('fronteira de autenticacao', () => {
    * alguem escrever o nome dela aqui.
    */
   it('so a saude e a raiz ficam fora da fronteira', () => {
-    expect(comExcecao.map((a) => a.replace(`${RAIZ}/`, '')).sort()).toEqual([
+    expect(comExcecao.map(caminhoRelativo).sort()).toEqual([
       'src/infraestrutura/http/raiz.controller.ts',
       'src/infraestrutura/http/saude.controller.ts',
     ]);

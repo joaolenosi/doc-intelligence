@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import {
   arquivosTs,
   violacoesNoConteudo,
@@ -74,8 +74,13 @@ describe('fronteira do dominio', () => {
 
     it('nao importa nada de fora de si', () => {
       const violacoes = violacoesNoDiretorio(diretorio);
+      // O caminho e recortado com `relative`, e nao com `replace(RAIZ + '/')`,
+      // porque no Windows o separador e a contrabarra e o recorte nao
+      // acontecia. Aqui isso so afeta a mensagem, mas a mensagem e o motivo de
+      // este teste existir: ele precisa apontar arquivo e linha para ser
+      // acionavel.
       const relato = violacoes
-        .map((v) => `  ${v.arquivo.replace(RAIZ + '/', '')}:${v.linha}  ${v.trecho}`)
+        .map((v) => `  ${relative(RAIZ, v.arquivo).split(sep).join('/')}:${v.linha}  ${v.trecho}`)
         .join('\n');
       expect(violacoes.length === 0 ? '' : `\n${relato}\n`).toBe('');
     });
